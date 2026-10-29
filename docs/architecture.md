@@ -269,16 +269,24 @@ yet. The first shared schema creates it.
 
 ## 7. Deployment
 
-The scaffold deploys nothing. The first deployment needs these steps:
+The owner does each operation in the dashboard of Cloudflare. No person needs
+`wrangler` on a local computer.
 
-1. Make the database: `npx wrangler d1 create airchive`.
-2. Write the identifier of the database in `database_id` of `wrangler.jsonc`.
-3. Apply the migrations: `npx wrangler d1 migrations apply airchive --remote`.
-4. Deploy: `npm run deploy`.
+- **The database.** The owner made the D1 database `airchive` in the dashboard.
+  `wrangler.jsonc` holds its identifier in `database_id`. The identifier is not a
+  secret.
+- **The deployment.** Workers Builds, the integration of Cloudflare with GitHub,
+  deploys the Worker `airchive` after each merge on `main`. The build command is
+  `npm run build`. The deploy command is `npx wrangler deploy`.
+- **The examination.** After a deployment, `GET /api/health` must give `ok`.
 
-A later slice selects one of two methods for each push: a workflow with
-`wrangler deploy` and the secret `CLOUDFLARE_API_TOKEN`, or Workers Builds, the
-integration of Cloudflare with GitHub.
+The name of the Worker in the dashboard must be the same as `name` in
+`wrangler.jsonc`.
+
+The first table adds the migrations to the deploy command. Then the deploy
+command applies `wrangler d1 migrations apply DB --remote` before `wrangler deploy`.
+The secrets go to the settings of the Worker in the dashboard, not to the
+repository.
 
 ## 8. The slices after the scaffold
 

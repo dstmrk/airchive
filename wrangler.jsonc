@@ -24,11 +24,11 @@
 		{
 			"binding": "DB",
 			"database_name": "airchive",
-			// A placeholder. `wrangler dev` makes a local database and it does
-			// not read this value. The deployment needs the real identifier of
-			// `wrangler d1 create airchive`. Refer to paragraph 7 of
-			// docs/architecture.md.
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			// The remote database of production. The owner made it in the
+			// dashboard of Cloudflare. `wrangler dev` does not read this value:
+			// it makes a local database in `.wrangler/`. Refer to paragraph 7
+			// of docs/architecture.md.
+			"database_id": "95431a07-edf4-4ef3-a275-2bb6e660adbb",
 			"migrations_dir": "drizzle"
 		}
 	]
