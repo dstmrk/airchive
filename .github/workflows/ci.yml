@@ -1,0 +1,57 @@
+# The examination of each change.
+#
+# The section Commands of CLAUDE.md gives the commands before a commit. A
+# person can forget one command. This workflow runs each one, thus a pull
+# request shows the result before the merge.
+#
+# The workflow deploys nothing. Paragraph 7 of docs/architecture.md gives the
+# deployment.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The workflow reads the repository. It writes nothing.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      # `worker-configuration.d.ts` is generated from `wrangler.jsonc`. A
+      # change of a binding without `npm run cf-typegen` gives old types, and
+      # the typecheck then examines the wrong `Env`.
+      - name: Types of the Worker
+        run: npx wrangler types --check
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint and format
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      # Each hook makes a rule of CLAUDE.md mechanical. A hook that stops its
+      # block must make these suites fail.
+      - name: Hooks
+        run: |
+          bash .claude/hooks/test-block-commit-on-main.sh
+          bash .claude/hooks/test-block-push-to-main.sh
+          bash .claude/hooks/test-block-private-data-commit.sh

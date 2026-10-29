@@ -1,0 +1,43 @@
+# Dependencies and caches
+node_modules/
+.npm
+*.tsbuildinfo
+.vite/
+vite.config.ts.timestamp-*
+coverage/
+
+# The build. `vite build` writes the client and the Worker here.
+dist/
+
+# The local state of wrangler and of the plugin of Cloudflare: the local D1
+# database, the logs and the configuration of the deployment.
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Logs
+*.log
+
+# The private data of the user (CLAUDE.md, section Git). A local database or
+# an export of D1 holds the boarding passes of a person, and git keeps a file
+# in the history after a later delete. The hook
+# .claude/hooks/block-private-data-commit.sh gives the second defence.
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Boarding passes that a person uses for a manual test. A file of a real pass
+# holds the name, the booking reference and a barcode.
+*.pkpass
+
+# Editors and systems
+.DS_Store
+.idea/
+.vscode/

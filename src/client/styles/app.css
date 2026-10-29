@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/**
+ * All the tokens of the theme are in this file, in the `@theme` directive of
+ * Tailwind CSS v4. The design of the paper boarding pass adds its tokens here.
+ * Refer to paragraph 5.1 of docs/architecture.md.
+ */
+@theme {
+	--color-background: #f7f3ea;
+	--color-foreground: #1d1b18;
+	--color-muted-foreground: #6b655b;
+}
+
+@layer base {
+	body {
+		background-color: var(--color-background);
+		color: var(--color-foreground);
+	}
+}

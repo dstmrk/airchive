@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # One pull request each week for the npm packages. The minor and the patch
+  # updates go into one group. A major update gets its own pull request,
+  # because it can change an API. The cooldown keeps a release of less than
+  # seven days out of the proposals: a defective release has time to go back.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
