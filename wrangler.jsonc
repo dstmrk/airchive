@@ -1,0 +1,35 @@
+{
+	// The configuration of the Worker. The Worker supplies the API and the
+	// files of the client from one origin. Refer to paragraph 2.2 of
+	// docs/architecture.md.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "airchive",
+	"main": "./src/server/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	"assets": {
+		"directory": "./dist/client",
+		// The client is a single-page application. An unknown path gives
+		// index.html, and TanStack Router shows the page or the page "not found".
+		"not_found_handling": "single-page-application",
+		// A request to /api goes to the Worker first. Without this item, the
+		// asset handler answers an unknown /api path with index.html.
+		"run_worker_first": ["/api/*"]
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "airchive",
+			// A placeholder. `wrangler dev` makes a local database and it does
+			// not read this value. The deployment needs the real identifier of
+			// `wrangler d1 create airchive`. Refer to paragraph 7 of
+			// docs/architecture.md.
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "drizzle"
+		}
+	]
+}

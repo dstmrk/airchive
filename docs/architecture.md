@@ -1,0 +1,296 @@
+# airchive — Architecture Decision Record
+
+Status: **accepted**. Date: 2026-10-29.
+
+This document records the architecture decisions. The owner made these decisions before
+the start of the code. The document is in ASD-STE100 Simplified Technical English.
+
+The scaffold implements paragraphs 2, 5.1 and 5.2 only. Each other paragraph gives a
+decision for a later slice. Paragraph 8 gives the list of those slices.
+
+---
+
+## 1. Context
+
+airchive turns a boarding pass into a **paper boarding pass**, with the real data of the
+flight. The result is a keepsake of the flight. A map shows the route, and the function
+**relive your flight** moves an aircraft along that route.
+
+These constraints control all the decisions in this document:
+
+| Constraint | Decision |
+|---|---|
+| Cost | Zero. The application runs on the free plans of Cloudflare and Resend. |
+| Users | Public. Each person makes an account and holds a private archive. |
+| Project | A hobby project of one person. The code stays small. |
+| Device | Mobile first. A boarding pass arrives on a telephone. |
+| Data | A boarding pass holds personal data. The application keeps the minimum. Refer to paragraph 3.2. |
+
+## 2. Stack
+
+| Layer | Decision | Reason |
+|---|---|---|
+| Hosting | Cloudflare Workers, free plan | No pause for inactivity, no clause against commercial use, one vendor for the data and the files. |
+| HTTP server | Hono | It runs on Workers with no adapter. |
+| Client | Vite, React 19, TanStack Router | A single-page application. The Worker supplies its files. |
+| User interface | Tailwind CSS v4, shadcn/ui | The repository contains the components. |
+| Database | Cloudflare D1 (SQLite) | Refer to paragraph 2.3. |
+| Files | Cloudflare R2 | The logo and the icon of an airline only. Refer to paragraph 3.2. |
+| Schema and migrations | Drizzle and drizzle-kit | The same tools as Yume. |
+| Authentication | Better Auth, magic link, Resend | Refer to paragraph 4. |
+| Map | mapcn (MapLibre GL), OpenFreeMap tiles | Refer to paragraph 5.5. |
+| Tests | Vitest | |
+| Lint and format | Biome | One tool in the place of ESLint and Prettier. |
+
+The scaffold holds Hono, React, TanStack Router and Tailwind CSS only. Each other package
+arrives with the slice that uses it. Drizzle, Better Auth, mapcn and TanStack Query are
+not installed yet.
+
+The structure of the repository comes from Yume (`dstmrk/yume`). The map component comes
+from prezzi-carburante (`dstmrk/prezzi-carburante`). The rules of the process come from
+ScontrinoZero (`dstmrk/scontrinozero`).
+
+### 2.1 Why not Next.js
+
+Next.js on Workers needs the adapter OpenNext. The adapter adds a layer between the code
+and the runtime, and some functions of Next.js arrive late in it. Hono runs on Workers
+directly.
+
+The only function of Next.js that airchive needs is the preview of a shared link. A
+crawler reads no JavaScript, thus the page of a shared flight needs its tags on the
+server. Paragraph 5.3 gives the solution with Hono. That solution is one small handler.
+
+### 2.2 Why one Worker
+
+One Worker supplies the API and the files of the client from one origin. The plugin of
+Cloudflare for Vite runs the Worker in `workerd` during `vite dev`. Thus development and
+production use the same runtime and the same origin.
+
+`wrangler.jsonc` gives these rules:
+
+- `assets.not_found_handling` is `single-page-application`. A path that is not a file
+  gives `index.html`, and TanStack Router shows the page.
+- `assets.run_worker_first` holds `/api/*`. A request to the API goes to the Worker
+  first. Without this item, an unknown path of the API gives `index.html`.
+- The Worker gives JSON for each path of the API, also for an unknown path.
+
+### 2.3 Why D1
+
+SQLite was the first choice of the owner. The functions of Workers have no persistent
+file system, thus a local SQLite file is not possible. D1 is SQLite as a service of
+Cloudflare. Drizzle supports D1, and the free plan is sufficient for this application.
+
+The team examined these alternatives:
+
+| Alternative | Reason for the refusal |
+|---|---|
+| Vercel with Turso and Vercel Blob | Three vendors. The plan Hobby forbids commercial use. |
+| Vercel with Supabase | Postgres, not SQLite. A free project stops after a week with no activity. |
+| A home server | The owner maintains the hardware. A public application needs a server that is always available. |
+
+The route `GET /api/health` sends `SELECT 1` to D1. Thus the scaffold examines the
+binding `DB` before the first table exists.
+
+## 3. Data
+
+### 3.1 The sources of a flight
+
+A person adds a flight in one of three ways, in this order:
+
+1. **A `.pkpass` file.** The file is a zip archive with `pass.json`. Since iOS 12, many
+   airlines add the semantic tags (`departureAirportCode`, `originalDepartureDate` and
+   others). Those tags give the most data: times, terminal, gate, colours.
+2. **A barcode in an image or in a PDF file.** Each boarding pass holds a barcode in the
+   format IATA BCBP (Resolution 792). The barcode gives the name, the booking reference,
+   the airports, the flight, the date and the seat. It gives no time and no year.
+3. **Manual input.** For a flight with no boarding pass.
+
+Android has no file format for a pass. Google Wallet makes a pass on the server with its
+API, and a person cannot export that pass. Thus the barcode is the source for a person
+with Android.
+
+The three ways fill **one form**. The person examines the data, completes the missing
+items and saves. Thus the validation is in one place. The manual input is the first
+slice, because it needs no parser.
+
+### 3.2 The private data
+
+A boarding pass holds the name, the booking reference and sometimes the number of a
+frequent flyer programme. The barcode can also open the booking on the site of the
+airline. Therefore these rules apply:
+
+- The client reads the file in the browser. The file does not go to the server.
+- The server receives only the fields that the person examined in the form.
+- R2 holds only the graphic items of a `.pkpass` file: `logo.png`, `icon.png` and the
+  colours of `pass.json`. Those items hold no personal data.
+- The public view of a flight does not show the name or the booking reference by default.
+- The deletion of an account deletes the rows in D1 and the objects in R2.
+
+### 3.3 One owner for each row
+
+Each table of the data has the column `owner_id`. Each query of the server gives that
+condition. A person reads and writes only the rows of their own account.
+
+### 3.4 The airports
+
+The coordinates of the airports come from **OurAirports**, a data set in the public
+domain. The repository holds a reduced copy of that data set. The application needs no
+API for an airport.
+
+## 4. Authentication
+
+A person signs in with a **magic link**. Better Auth makes the link, and Resend sends the
+email. The domain of the application must be verified in Resend.
+
+The team examined these alternatives:
+
+| Alternative | Reason for the refusal |
+|---|---|
+| Email and password | The verification and the reset of a password need an email also. The hash of a password uses much CPU, and the free plan of Workers gives approximately 10 ms of CPU for each request. |
+| Google and Apple | Sign in with Apple needs the Apple Developer Program, which costs money. |
+| Cloudflare Access | Access is for a private application with known users. It is not a registration for the public. |
+
+A person with no Google account can use the application. The application keeps no
+password.
+
+## 5. User interface
+
+### 5.1 The tokens
+
+`src/client/styles/app.css` holds all the tokens, in the `@theme` directive of Tailwind
+CSS v4. The scaffold gives three colours of paper and ink. The design of the paper
+boarding pass adds its tokens to that file.
+
+### 5.2 The languages
+
+The interface is in English. Italian is the next language.
+
+- `src/client/i18n/locale.ts` gives the supported locales and `pickLocale`.
+  `pickLocale` reads `navigator.languages` and compares the primary subtag only.
+- `src/client/i18n/en.ts` holds the English text. Its keys give the type `Messages`.
+- `src/client/i18n/messages.ts` holds one catalogue for each locale, with the type
+  `Record<Locale, Messages>`. Thus a missing catalogue or a missing key is a compile
+  error.
+- A component reads the text with `useText()`. A component holds no text for the user.
+
+To add a language, add its tag to `LOCALES` and its catalogue to `messages`. The project
+uses no i18n library: two typed objects are sufficient.
+
+`index.html` holds the title and the description in English. A crawler reads no
+JavaScript, thus those two items cannot come from the catalogue.
+
+### 5.3 The page of a shared flight
+
+A person can share one flight with a public link. The preview of that link needs the
+tags of Open Graph in the HTML, because a crawler reads no JavaScript. Therefore:
+
+- A route of Hono supplies the page of a shared flight. It adds the tags to `index.html`
+  with `HTMLRewriter`.
+- A second route makes the image of the preview with Satori. The image is the paper
+  boarding pass.
+
+The compatibility of Satori with the Worker must be examined in that slice.
+
+### 5.4 The paper boarding pass
+
+The application has **one design**: a classic paper boarding pass with a stub. The logo
+and the colour of the airline are accents on that design. The design does not copy the
+boarding pass of a real airline, because that copy is a legal risk.
+
+The design is a theme: the colours, the fonts and the texture are tokens. A second design
+is then a second set of tokens, not a second component.
+
+The typography has two fonts:
+
+- A sans-serif font for the labels and the text, for example Inter. A comparison of two
+  or three fonts on a mockup gives the final choice.
+- JetBrains Mono for the codes: the airports, the flight, the seat, the gate and the
+  times. Yume uses the same font.
+
+The repository holds the font files, as in Yume. Each file holds all the Latin characters.
+
+### 5.5 The map
+
+The map uses mapcn, which gives MapLibre GL components in the style of shadcn/ui. The
+component comes from prezzi-carburante with two changes:
+
+- The tiles come from OpenFreeMap, not from CARTO. OpenFreeMap needs no key and permits
+  commercial use. The terms of CARTO for a public application are not clear.
+- The bundle supplies the worker of MapLibre, not a CDN. Thus the CSP stays on `'self'`.
+
+The style of the map uses the colours of paper of paragraph 5.4. The style is one URL,
+thus a change of the provider is a change of one line.
+
+### 5.6 Relive your flight
+
+The route is the **great circle** between the two airports. It is not the real track of
+the aircraft. The duration comes from the times of the `.pkpass` file, or from an
+estimate from the distance. The person can correct the duration.
+
+A pure function `position(t)` gives the latitude, the longitude and the bearing for
+`t` from 0 to 1. Each mode of the playback is a different speed of `t`:
+
+- real time (1×),
+- a set of faster speeds,
+- a fixed duration, for example 30 seconds,
+- a timeline that the person can drag.
+
+The owner selects the speeds on a mockup. If the user selects `prefers-reduced-motion`,
+the playback does not start automatically.
+
+The schema keeps optional fields for the real times and for a real track. An API of
+flights (for example AeroDataBox) or a real ADS-B track (for example OpenSky) can fill
+them in a later slice. A real track is free only for a flight of the last 30 days, thus
+the great circle stays the base for an old flight.
+
+## 6. Repository layout
+
+```text
+src/
+  client/          the single-page application
+    i18n/          the locales and the catalogues of text
+    styles/        app.css, the tokens of the theme
+    main.tsx       the entry point of the client
+    router.tsx     the routes of the client
+  server/          the Worker
+    app.ts         the routes of Hono
+    index.ts       the entry point of the Worker
+index.html         the page of the client
+wrangler.jsonc     the configuration of the Worker and of its bindings
+worker-configuration.d.ts   the types of `Env`, from `wrangler types`
+```
+
+The logic of the client goes in a `.ts` file with a test file. The project has no
+library for the tests of a component, thus a `.tsx` file holds only the elements and the
+state.
+
+`src/shared/` holds the code that the client and the Worker both use. It does not exist
+yet. The first shared schema creates it.
+
+## 7. Deployment
+
+The scaffold deploys nothing. The first deployment needs these steps:
+
+1. Make the database: `npx wrangler d1 create airchive`.
+2. Write the identifier of the database in `database_id` of `wrangler.jsonc`.
+3. Apply the migrations: `npx wrangler d1 migrations apply airchive --remote`.
+4. Deploy: `npm run deploy`.
+
+A later slice selects one of two methods for each push: a workflow with
+`wrangler deploy` and the secret `CLOUDFLARE_API_TOKEN`, or Workers Builds, the
+integration of Cloudflare with GitHub.
+
+## 8. The slices after the scaffold
+
+Each slice is one pull request, and a person can accept or refuse it from one result.
+
+1. Authentication: Better Auth, magic link, Resend.
+2. The table `flight` with Drizzle, and the manual form.
+3. The paper boarding pass, with the fonts and the mockup of the fonts.
+4. The map and the great circle.
+5. Relive your flight.
+6. The parser of `.pkpass` files.
+7. The parser of BCBP barcodes from an image or a PDF file.
+8. The public page of a shared flight, with the preview.
+9. The deployment.
+10. The Italian catalogue.
