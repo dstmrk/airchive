@@ -346,6 +346,12 @@ The owner does each operation in the dashboard of Cloudflare. No person needs
 The name of the Worker in the dashboard must be the same as `name` in
 `wrangler.jsonc`.
 
+The preview builds of Workers Builds are off (Settings → Build → Branch control). The
+command `wrangler preview` needs a `previews` block with a separate D1 database. The
+magic link also needs the exact origin in `BETTER_AUTH_URL`, and the origin of a
+preview changes with each branch. The CI of GitHub builds each pull request, thus a
+preview gives no necessary examination now.
+
 The secrets go to the settings of the Worker in the dashboard, not to the
 repository. Paragraph 4.1 gives the list.
 
