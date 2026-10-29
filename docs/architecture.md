@@ -5,7 +5,7 @@ Status: **accepted**. Date: 2026-10-29.
 This document records the architecture decisions. The owner made these decisions before
 the start of the code. The document is in ASD-STE100 Simplified Technical English.
 
-The scaffold implements paragraphs 2, 5.1 and 5.2 only. Each other paragraph gives a
+The code implements paragraphs 2, 4, 5.1, 5.2 and 7. Each other paragraph gives a
 decision for a later slice. Paragraph 8 gives the list of those slices.
 
 ---
@@ -42,9 +42,8 @@ These constraints control all the decisions in this document:
 | Tests | Vitest | |
 | Lint and format | Biome | One tool in the place of ESLint and Prettier. |
 
-The scaffold holds Hono, React, TanStack Router and Tailwind CSS only. Each other package
-arrives with the slice that uses it. Drizzle, Better Auth, mapcn and TanStack Query are
-not installed yet.
+Each package arrives with the slice that uses it. The authentication added Better Auth
+and Drizzle. mapcn and TanStack Query are not installed yet.
 
 The structure of the repository comes from Yume (`dstmrk/yume`). The map component comes
 from prezzi-carburante (`dstmrk/prezzi-carburante`). The rules of the process come from
@@ -140,7 +139,8 @@ API for an airport.
 ## 4. Authentication
 
 A person signs in with a **magic link**. Better Auth makes the link, and Resend sends the
-email. The domain of the application must be verified in Resend.
+email. The domain of the email must be verified in Resend. A new email address makes a
+new account: the application has no separate registration.
 
 The team examined these alternatives:
 
@@ -152,6 +152,56 @@ The team examined these alternatives:
 
 A person with no Google account can use the application. The application keeps no
 password.
+
+`src/server/auth.ts` makes Better Auth for each request, because a Worker receives its
+bindings with each request. These rules apply:
+
+- A link is valid for 15 minutes and opens one session one time.
+  `MAGIC_LINK_TTL_MINUTES` in `src/shared/auth.ts` gives the value. A test compares
+  each text that names it.
+- D1 keeps the hash of the token, not the token. A copy of the database gives no link
+  that opens an account.
+- The callback of a link must be on the origin of the application. Better Auth refuses
+  another origin before it sends the email. This refusal prevents an open redirect.
+- One address can ask for 3 links in a minute. The counters are in D1, because the
+  memory of a Worker is not shared between its isolates. The address comes from the
+  header `cf-connecting-ip`. A person can still receive links from many addresses:
+  that risk is accepted for now.
+- `GET /api/me` gives the person of the session, or 401. The middleware
+  `requireSession` of `src/server/app.ts` protects each route of the data.
+
+Better Auth skips the check of the origin when `NODE_ENV` is `test`. `auth.ts` sets
+`disableOriginCheck: false`, thus the tests examine the check of production.
+
+### 4.1 The variables and the secrets
+
+| Name | Kind | Production | Development |
+|---|---|---|---|
+| `BETTER_AUTH_URL` | variable | `wrangler.jsonc` | `.dev.vars`: `http://localhost:5173` |
+| `EMAIL_FROM` | variable | `wrangler.jsonc` | `wrangler.jsonc` |
+| `BETTER_AUTH_SECRET` | secret | the settings of the Worker in the dashboard | `.dev.vars` |
+| `RESEND_API_KEY` | secret | the settings of the Worker in the dashboard | empty: the Worker writes the link to the log |
+
+With no `BETTER_AUTH_SECRET`, each route of `/api/auth` gives 503. With no
+`RESEND_API_KEY`, development writes the link to the log, and production refuses the
+request. Production never writes a link to the log, because a link opens an account.
+
+`.dev.vars.example` holds the name of each secret with no value. `npm run cf-typegen`
+reads that file, thus `Env` holds each secret also in the CI.
+
+The domain is a subdomain of a domain of the owner for now. A change of domain changes
+`BETTER_AUTH_URL`, `EMAIL_FROM` and the verification in Resend, and each session ends.
+The owner buys the final domain before the public links of paragraph 5.3.
+
+### 4.2 The tables and the migrations
+
+`src/server/db/schema.ts` holds the tables of Better Auth with Drizzle. `npm run
+db:generate` writes a SQL migration to `drizzle/`. The deploy command applies the
+migrations to the remote database before `wrangler deploy`.
+
+A plugin of Better Auth can need a new table or a new field. `getAuthTables` of
+`better-auth/db` gives the list for the options of `auth.ts`. Compare that list with
+`schema.ts` after each change of the options.
 
 ## 5. User interface
 
@@ -175,6 +225,9 @@ The interface is in English. Italian is the next language.
 
 To add a language, add its tag to `LOCALES` and its catalogue to `messages`. The project
 uses no i18n library: two typed objects are sufficient.
+
+The text of an email is on the server, in `src/server/email-text.ts`, because the Worker
+sends the email.
 
 `index.html` holds the title and the description in English. A crawler reads no
 JavaScript, thus those two items cannot come from the catalogue.
@@ -252,9 +305,16 @@ src/
     styles/        app.css, the tokens of the theme
     main.tsx       the entry point of the client
     router.tsx     the routes of the client
+    lib/           the logic of the client, each file with a test file
   server/          the Worker
+    db/schema.ts   the tables, with Drizzle
+    test/d1.ts     a real D1 database for the tests
     app.ts         the routes of Hono
+    auth.ts        Better Auth for one request
+    email.ts       the email of the magic link, with the API of Resend
     index.ts       the entry point of the Worker
+  shared/          the code of the client and of the Worker
+drizzle/           the SQL migrations, from drizzle-kit
 index.html         the page of the client
 wrangler.jsonc     the configuration of the Worker and of its bindings
 worker-configuration.d.ts   the types of `Env`, from `wrangler types`
@@ -264,8 +324,10 @@ The logic of the client goes in a `.ts` file with a test file. The project has n
 library for the tests of a component, thus a `.tsx` file holds only the elements and the
 state.
 
-`src/shared/` holds the code that the client and the Worker both use. It does not exist
-yet. The first shared schema creates it.
+`src/shared/` holds the code that the client and the Worker both use.
+
+The tests of the server use `getPlatformProxy` of wrangler for a real D1 database in
+memory, with each migration applied. Thus a test examines the SQL of production.
 
 ## 7. Deployment
 
@@ -277,16 +339,15 @@ The owner does each operation in the dashboard of Cloudflare. No person needs
   secret.
 - **The deployment.** Workers Builds, the integration of Cloudflare with GitHub,
   deploys the Worker `airchive` after each merge on `main`. The build command is
-  `npm run build`. The deploy command is `npx wrangler deploy`.
+  `npm run build`. The deploy command is `npm run deploy`: it applies the migrations to
+  the remote database, then it runs `wrangler deploy`.
 - **The examination.** After a deployment, `GET /api/health` must give `ok`.
 
 The name of the Worker in the dashboard must be the same as `name` in
 `wrangler.jsonc`.
 
-The first table adds the migrations to the deploy command. Then the deploy
-command applies `wrangler d1 migrations apply DB --remote` before `wrangler deploy`.
 The secrets go to the settings of the Worker in the dashboard, not to the
-repository.
+repository. Paragraph 4.1 gives the list.
 
 ## 8. The slices after the scaffold
 

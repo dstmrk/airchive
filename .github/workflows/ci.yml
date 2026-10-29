@@ -33,11 +33,12 @@ jobs:
       - name: Tests
         run: npm test
 
-      # `worker-configuration.d.ts` is generated from `wrangler.jsonc`. A
-      # change of a binding without `npm run cf-typegen` gives old types, and
-      # the typecheck then examines the wrong `Env`.
+      # `worker-configuration.d.ts` is generated from `wrangler.jsonc` and
+      # from the names of `.dev.vars.example`. A change of a binding or of a
+      # secret without `npm run cf-typegen` gives old types, and the typecheck
+      # then examines the wrong `Env`.
       - name: Types of the Worker
-        run: npx wrangler types --check
+        run: npm run cf-typegen:check
 
       - name: Types
         run: npm run typecheck

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAGIC_LINK_TTL_MINUTES } from "../../shared/auth.ts";
 import { LOCALES } from "./locale.ts";
 import { messages } from "./messages.ts";
 
@@ -18,4 +19,15 @@ describe("the catalogues of text", () => {
 
 		expect(empty).toEqual([]);
 	});
+});
+
+describe("the text of the sign-in", () => {
+	it.each(LOCALES)(
+		"gives the same life of the link as the auth in %s",
+		(locale) => {
+			expect(messages[locale].signInSentBody).toContain(
+				String(MAGIC_LINK_TTL_MINUTES),
+			);
+		},
+	);
 });

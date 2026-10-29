@@ -20,6 +20,13 @@
 		// asset handler answers an unknown /api path with index.html.
 		"run_worker_first": ["/api/*"]
 	},
+	// The values of production that are not secrets. `.dev.vars` replaces
+	// them in development. The secrets are in `.dev.vars.example` with no
+	// value. Refer to paragraph 4.1 of docs/architecture.md.
+	"vars": {
+		"BETTER_AUTH_URL": "https://airchive.9874848.xyz",
+		"EMAIL_FROM": "airchive <login@airchive.9874848.xyz>"
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",
