@@ -283,14 +283,22 @@ integration of Cloudflare with GitHub.
 ## 8. The slices after the scaffold
 
 Each slice is one pull request, and a person can accept or refuse it from one result.
+Each slice has a GitHub issue. The issue gives the scope, the result for the acceptance
+and the open checks.
 
-1. Authentication: Better Auth, magic link, Resend.
-2. The table `flight` with Drizzle, and the manual form.
-3. The paper boarding pass, with the fonts and the mockup of the fonts.
-4. The map and the great circle.
-5. Relive your flight.
-6. The parser of `.pkpass` files.
-7. The parser of BCBP barcodes from an image or a PDF file.
-8. The public page of a shared flight, with the preview.
-9. The deployment.
-10. The Italian catalogue.
+| Order | Slice | Issue |
+|---|---|---|
+| 1 | Authentication: Better Auth, magic link, Resend | #3 |
+| 2 | The deployment | #4 |
+| 3 | The table `flight` with Drizzle, and the manual form | #5 |
+| 4 | The paper boarding pass, with the mockup of the fonts | #6 |
+| 5 | The map and the great circle | #7 |
+| 6 | Relive your flight | #8 |
+| 7 | The parser of `.pkpass` files | #9 |
+| 8 | The parser of BCBP barcodes from an image or a PDF file | #10 |
+| 9 | The public page of a shared flight, with the preview | #11 |
+| 10 | The Italian catalogue | #12 |
+
+The deployment comes after the authentication and before the data. A real environment
+shows early the problems that `wrangler dev` does not show: the CPU limit of the free
+plan, the domain of Resend and the limits of D1.
