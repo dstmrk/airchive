@@ -1,58 +1,46 @@
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { FlightForm } from "./components/FlightForm.tsx";
+import { Link, useParams } from "@tanstack/react-router";
+import { PaperPass } from "./components/PaperPass.tsx";
 import { RequireSession } from "./components/RequireSession.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
-import { useDeleteFlight, useFlight } from "./lib/queries.ts";
+import { useFlight } from "./lib/queries.ts";
 
 export function FlightPage() {
 	return (
 		<RequireSession>
-			<FlightEditor />
+			<FlightDetail />
 		</RequireSession>
 	);
 }
 
-function FlightEditor() {
+/** The paper boarding pass of one flight, with the link to the form. */
+function FlightDetail() {
 	const text = useText();
-	const navigate = useNavigate();
 	const { flightId } = useParams({ from: "/flights/$flightId" });
 	const { data: flight, isPending, isError } = useFlight(flightId);
-	const remove = useDeleteFlight(flightId);
-
-	function onDelete() {
-		if (window.confirm(text.deleteConfirm)) {
-			remove.mutate(undefined, { onSuccess: () => navigate({ to: "/" }) });
-		}
-	}
 
 	return (
-		<main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
-			<Link
-				to="/"
-				className="text-muted-foreground text-sm underline underline-offset-4"
-			>
-				{text.backToArchive}
-			</Link>
+		<main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
+			<div className="flex items-baseline justify-between gap-2">
+				<Link
+					to="/"
+					className="text-muted-foreground text-sm underline underline-offset-4"
+				>
+					{text.backToArchive}
+				</Link>
+				{flight && (
+					<Link
+						to="/flights/$flightId/edit"
+						params={{ flightId }}
+						className="font-medium text-sm underline underline-offset-4"
+					>
+						{text.editFlight}
+					</Link>
+				)}
+			</div>
 			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
 			{isError && <p role="alert">{text.flightNotFound}</p>}
 			{flight && (
-				<>
-					<h1 className="font-semibold text-2xl">{text.editFlightTitle}</h1>
-					<FlightForm flight={flight} onSaved={() => navigate({ to: "/" })} />
-					<button
-						type="button"
-						onClick={onDelete}
-						disabled={remove.isPending}
-						className="h-11 rounded-md border border-red-700 px-4 font-medium text-red-700 disabled:opacity-50"
-					>
-						{text.deleteFlight}
-					</button>
-					{remove.isError && (
-						<p className="text-red-700 text-sm" role="alert">
-							{text.deleteFailed}
-						</p>
-					)}
-				</>
+				<PaperPass flight={flight} locale={document.documentElement.lang} />
 			)}
 		</main>
 	);

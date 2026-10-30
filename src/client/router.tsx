@@ -4,6 +4,7 @@ import {
 	createRouter,
 	Outlet,
 } from "@tanstack/react-router";
+import { FlightEditPage } from "./FlightEditPage.tsx";
 import { FlightPage } from "./FlightPage.tsx";
 import { HomePage } from "./HomePage.tsx";
 import { NewFlightPage } from "./NewFlightPage.tsx";
@@ -50,12 +51,19 @@ const flightRoute = createRoute({
 	component: FlightPage,
 });
 
+const flightEditRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/flights/$flightId/edit",
+	component: FlightEditPage,
+});
+
 export const router = createRouter({
 	routeTree: rootRoute.addChildren([
 		homeRoute,
 		signInRoute,
 		newFlightRoute,
 		flightRoute,
+		flightEditRoute,
 	]),
 });
 

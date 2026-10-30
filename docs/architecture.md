@@ -293,14 +293,32 @@ boarding pass of a real airline, because that copy is a legal risk.
 The design is a theme: the colours, the fonts and the texture are tokens. A second design
 is then a second set of tokens, not a second component.
 
-The typography has two fonts:
+The typography has two fonts, both under the SIL Open Font License:
 
-- A sans-serif font for the labels and the text, for example Inter. A comparison of two
-  or three fonts on a mockup gives the final choice.
-- JetBrains Mono for the codes: the airports, the flight, the seat, the gate and the
-  times. Yume uses the same font.
+- **Barlow** for the labels and the text: regular, medium and semibold. The owner chose
+  it on a mockup over Inter and DM Sans. Its narrow shapes recall the signs of an
+  airport, and it sits well next to a monospace font.
+- **JetBrains Mono** for the codes: the airports, the flight, the seat, the times, the
+  dates and the booking reference. Yume uses the same font and the same files.
 
-The repository holds the font files, as in Yume. Each file holds all the Latin characters.
+`src/client/fonts/` holds the files and their licences. Each file holds all the Latin
+characters, thus no word mixes two fonts. `pyftsubset` of `fonttools` makes each Barlow
+file from the release of Google Fonts, with the same Unicode ranges as Yume and the
+features `kern`, `liga` and `tnum`.
+
+The component is `src/client/components/PaperPass.tsx`, and `src/client/lib/pass.ts`
+gives each text. Its layout follows the width of its container, with a container query:
+
+- Under 640 px the pass is vertical: the stub is below the body, with a horizontal
+  perforation. A printed pass at the width of a telephone has text of 6 or 7 px.
+- From 640 px the stub is on the right, as on a printed pass. The image of a shared
+  flight (paragraph 5.3) uses this layout.
+
+The date is the local day of the boarding pass, for example `12 MAY 2024`, with the
+month of the locale. An arrival on a later day shows `+1` after the time. A value that
+the flight does not have shows `—`.
+
+`/flights/:id` shows the pass. The form is at `/flights/:id/edit`.
 
 ### 5.5 The map
 
@@ -346,7 +364,8 @@ src/
     main.tsx       the entry point of the client
     router.tsx     the routes of the client
     lib/           the logic of the client, each file with a test file
-    components/    the components that more than one page uses
+    components/    the components that more than one page uses, and PaperPass
+    fonts/         the font files and their licences
   server/          the Worker
     airports/      the dataset of the airports and its search
     db/schema.ts   the tables, with Drizzle
