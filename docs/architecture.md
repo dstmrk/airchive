@@ -35,7 +35,6 @@ These constraints control all the decisions in this document:
 | Client | Vite, React 19, TanStack Router | A single-page application. The Worker supplies its files. |
 | User interface | Tailwind CSS v4, shadcn/ui | The repository contains the components. |
 | Database | Cloudflare D1 (SQLite) | Refer to paragraph 2.3. |
-| Files | Cloudflare R2 | The logo and the icon of an airline only. Refer to paragraph 3.2. |
 | Schema and migrations | Drizzle and drizzle-kit | The same tools as Yume. |
 | Authentication | Better Auth, magic link, Resend | Refer to paragraph 4. |
 | Map | react-map-gl on MapLibre GL, OpenFreeMap tiles | Refer to paragraph 5.5. |
@@ -209,8 +208,8 @@ ZXing does not read a PDF417 code that is turned by more than approximately 5°.
 square codes (Aztec and QR) can have any angle. Thus the message asks for a straight
 image.
 
-The logo and the icon of the airline are not imported yet. Their upload to R2 is a
-separate slice, with its own limits for images.
+The import does not keep `logo.png` or `icon.png`. The pass takes the logo of the
+airline from a static catalogue. Paragraph 5.4.1 gives the reasons.
 
 ### 3.2 The private data
 
@@ -220,10 +219,10 @@ airline. Therefore these rules apply:
 
 - The client reads the file in the browser. The file does not go to the server.
 - The server receives only the fields that the person examined in the form.
-- R2 holds only the graphic items of a `.pkpass` file: `logo.png`, `icon.png` and the
-  colours of `pass.json`. Those items hold no personal data.
+- The application stores no image of a pass. The accent colour of the pass is a value
+  of the flight.
 - The public view of a flight does not show the name or the booking reference by default.
-- The deletion of an account deletes the rows in D1 and the objects in R2.
+- The deletion of an account deletes the rows in D1.
 
 ### 3.3 One owner for each row
 
@@ -399,6 +398,42 @@ month of the locale. An arrival on a later day shows `+1` after the time. A valu
 the flight does not have shows `—`.
 
 `/flights/:id` shows the pass. The form is at `/flights/:id/edit`.
+
+#### 5.4.1 The logos of the airlines
+
+The pass shows the logo of the airline next to its title, in the accent of the pass. The
+logos come from a static catalogue, `src/client/logos/airlines.json`, not from the
+`.pkpass` file:
+
+- A logo of a `.pkpass` file is a file that is not trusted. Its storage needs a table,
+  limits for images and a deletion. A static catalogue needs none of these.
+- A table of logos with the airline code as the key, shared by all the persons, lets
+  one file change the logo of each person. Rule 3 of the data keeps the persons apart.
+- Most logos of `.pkpass` files are white on the colour of the airline. On the paper of
+  the pass, a white logo is not visible. Each logo of the catalogue has one colour.
+
+The first logos came from Yume, with their sources: Simple Icons (CC0 1.0) and
+Wikimedia Commons. An airline with no logo shows no logo. The pass already gives the
+name of the airline. A line under the pass says that the logo is a trademark.
+
+Each entry has its codes, a title, a source, the view box of its file and its path. An
+entry can have a period, `since` and `until`. A code goes to a new airline over time:
+`AZ` is ITA Airways from 15 October 2021, thus a flight of 2019 with `AZ` shows no logo.
+The test of `scripts/logos/catalogue.ts` examines the catalogue: IATA codes, no overlap
+of periods, a source for each logo, path data only, and the order of the titles.
+
+To add a logo:
+
+1. Run `npm run logos:missing`. Paste the query in the console of D1 in the dashboard.
+   The result gives the codes with no logo, the most frequent first. The query reads the
+   code, the date and the owner of each flight, and it gives only counts.
+2. Run `npm run logos:add` with the codes and the title. Give `--simple-icons` and the
+   name of the icon, or `--svg` with a file of one colour and `--source`. The script
+   writes the exact version of Simple Icons in the source.
+3. Run `npm test`, then commit the catalogue.
+
+A file with more colours, shapes or transforms needs a trace first. Yume traces those
+files with `potrace`.
 
 ### 5.5 The map
 

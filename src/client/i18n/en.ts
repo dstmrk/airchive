@@ -87,6 +87,7 @@ export const en = {
 	passBooking: "Booking",
 	passFlight: "Flight",
 	passNoValue: "—",
+	passLogoTrademark: "The logo of the airline is a trademark of its owner.",
 
 	relive: "Relive your flight",
 	replayLabel: "Replay of the flight",
