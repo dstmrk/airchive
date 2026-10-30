@@ -46,6 +46,7 @@ describe("the Italian catalogue", () => {
 		"speed1min",
 		"speed5min",
 		"speed4x",
+		"inflightEta",
 	]);
 
 	it("translates each text that is not a name, a code or a unit", () => {

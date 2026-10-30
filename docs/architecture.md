@@ -515,7 +515,8 @@ after the landing. Issue #25 adds a tear with a finger.
 
 - `position(route, t)` gives the longitude, the latitude and the bearing for `t` from 0
   to 1. It uses the points of `greatCircle`, which have equal angles between them. Thus
-  a linear step of `t` is a constant speed.
+  a linear step of `t` is a constant speed. The aircraft does not use it directly: the
+  profile of the flight gives `t` (refer to the next list).
 - `replay(state, event)` gives the states: `idle`, `boarding`, `playing`, `paused` and
   `landed`. The replay never starts alone, thus `prefers-reduced-motion` needs no other
   rule. With that preference, the stub does not move: it goes away.
@@ -528,6 +529,28 @@ zone of each airport give it. With no arrival time, the estimate is the distance
 800 km/h, plus 30 minutes for the taxi, the take-off and the landing. The person corrects
 the duration with the arrival time in the form. During the replay, the local time of
 each airport moves. With no departure time, the controls show the time of the flight.
+
+`src/client/lib/flight-profile.ts` gives a simulated speed and altitude, because the pass
+gives no real data:
+
+- The altitude is a trapezium. The climb is 9 m/s (approximately 1,800 ft/min) and the
+  descent is 7.5 m/s (approximately 1,500 ft/min), to a cruise at 11,000 m.
+- The climb and the descent use a maximum of 2/3 of the duration. Thus a short flight
+  has a lower cruise altitude.
+- The speed is a trapezium on the same times: it starts at 0, increases linearly,
+  stays constant and decreases linearly to 0.
+- The cruise speed makes the area of the trapezium equal to the distance. Thus the
+  speed and the duration agree with the distance of the great circle.
+- The aircraft on the map moves with that speed: it is slow near the airports. The
+  timeline and the clocks stay linear in time.
+
+Under the map, a panel shows the distance to go, the time to go, the ETA in the time
+zone of the destination, the ground speed and the altitude. The units are metric: km,
+km/h and m. The ETA needs a departure time. A text tells the person that the speed and
+the altitude are simulated.
+
+When the replay starts, the map keeps the aircraft at the centre. A drag of the map
+stops the follow, and a tap of the aircraft starts it again.
 
 In real time, the Wake Lock API keeps the screen of a telephone on. If the browser
 refuses the lock, the replay continues.

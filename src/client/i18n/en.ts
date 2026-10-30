@@ -104,6 +104,13 @@ export const en = {
 	speed5min: "5 min",
 	speed4x: "4×",
 	speed1x: "Real time",
+	inflightLabel: "Flight data",
+	inflightDistance: "Distance to go",
+	inflightTime: "Time to go",
+	inflightEta: "ETA",
+	inflightSpeed: "Ground speed",
+	inflightAltitude: "Altitude",
+	inflightSimulated: "Simulated speed and altitude",
 
 	mapLabel: "Map of the route",
 	followAircraft: "Keep the aircraft at the centre of the map",
