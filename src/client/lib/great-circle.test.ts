@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { greatCircle, type LonLat, routeBounds } from "./great-circle.ts";
+import {
+	distanceKm,
+	greatCircle,
+	type LonLat,
+	routeBounds,
+} from "./great-circle.ts";
 
 const FCO: LonLat = [12.2508, 41.8045];
 const NRT: LonLat = [140.3864, 35.7647];
@@ -72,5 +77,21 @@ describe("routeBounds", () => {
 
 		expect(bounds[0][0]).toBeCloseTo(NRT[0], 3);
 		expect(bounds[1][0]).toBeCloseTo(LAX[0] + 360, 3);
+	});
+});
+
+describe("distanceKm", () => {
+	it("gives the distance on the great circle", () => {
+		// Rome Fiumicino to Tokyo Narita: 9,860 km on the ellipsoid. The sphere is within 0.5%.
+		expect(distanceKm(FCO, NRT)).toBeGreaterThan(9810);
+		expect(distanceKm(FCO, NRT)).toBeLessThan(9910);
+	});
+
+	it("gives the same distance in the two directions", () => {
+		close(distanceKm(LAX, NRT), distanceKm(NRT, LAX));
+	});
+
+	it("gives 0 for one point", () => {
+		expect(distanceKm(JFK, JFK)).toBe(0);
 	});
 });

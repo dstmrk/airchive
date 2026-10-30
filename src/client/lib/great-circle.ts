@@ -97,3 +97,12 @@ export function routeBounds(points: readonly LonLat[]): [LonLat, LonLat] {
 		[Math.max(...lons), Math.max(...lats)],
 	];
 }
+
+/** The mean radius of the Earth, in km (IUGG). */
+const EARTH_RADIUS_KM = 6371.0088;
+
+/** The distance between two points on the great circle, in km. */
+export function distanceKm(from: LonLat, to: LonLat): number {
+	const cos = Math.max(-1, Math.min(1, dot(toVector(from), toVector(to))));
+	return Math.acos(cos) * EARTH_RADIUS_KM;
+}

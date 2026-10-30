@@ -61,7 +61,16 @@ function Arrow({ className }: Readonly<{ className: string }>) {
 export function PaperPass({
 	flight,
 	locale,
-}: Readonly<{ flight: FlightView; locale: string }>) {
+	torn = false,
+	onRelive,
+}: Readonly<{
+	flight: FlightView;
+	locale: string;
+	/** The stub is off the pass during the replay. */
+	torn?: boolean;
+	/** The button on the stub starts the replay. With no function, the stub has no button. */
+	onRelive?: () => void;
+}>) {
 	const text = useText();
 	const pass = passView(flight, locale);
 	const none = text.passNoValue;
@@ -79,10 +88,14 @@ export function PaperPass({
 						? ({ "--color-pass-accent": pass.accent } as CSSProperties)
 						: undefined
 				}
-				className="flex flex-col overflow-hidden rounded-[14px] bg-paper text-foreground shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:flex-row"
+				className="flex flex-col text-foreground @min-[640px]:flex-row"
 			>
-				<div className="flex min-w-0 flex-1 flex-col">
-					<div className="h-2.5 bg-pass-accent" />
+				{/* The body and the stub each have their paper: when the stub tears, the background shows. */}
+				<div className="relative flex min-w-0 flex-1 flex-col rounded-t-[14px] bg-paper shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:rounded-l-[14px] @min-[640px]:rounded-tr-none">
+					{/* The two notches of the perforation stay on the body after the tear: at the bottom on a telephone, on the right from 640 px. */}
+					<div className="absolute -bottom-[13px] -left-3 z-10 size-6 rounded-full bg-background @min-[640px]:-top-3 @min-[640px]:-right-[13px] @min-[640px]:bottom-auto @min-[640px]:left-auto" />
+					<div className="absolute -right-3 -bottom-[13px] z-10 size-6 rounded-full bg-background @min-[640px]:-right-[13px] @min-[640px]:-bottom-3" />
+					<div className="h-2.5 rounded-t-[14px] bg-pass-accent @min-[640px]:rounded-tr-none" />
 					<div className="flex flex-1 flex-col gap-4 px-5 pt-4 pb-5 @min-[640px]:px-6">
 						<div className="flex items-baseline justify-between gap-2">
 							<span className="font-semibold text-paper-label text-xs uppercase tracking-[0.18em]">
@@ -140,11 +153,16 @@ export function PaperPass({
 						</div>
 					</div>
 				</div>
-				<div className="relative flex flex-col border-perforation border-t-2 border-dashed @min-[640px]:w-[196px] @min-[640px]:shrink-0 @min-[640px]:border-t-0 @min-[640px]:border-l-2">
-					{/* The two notches of the perforation: on the sides when the stub is below, at the top and the bottom when it is on the right. */}
-					<div className="absolute -top-[13px] -left-3 size-6 rounded-full bg-background @min-[640px]:-left-[13px] @min-[640px]:-top-3" />
-					<div className="absolute -top-[13px] -right-3 size-6 rounded-full bg-background @min-[640px]:top-auto @min-[640px]:right-auto @min-[640px]:-bottom-3 @min-[640px]:-left-[13px]" />
-					<div className="hidden h-2.5 bg-pass-accent @min-[640px]:block" />
+				{/* The stub tears along the perforation: the transform and the opacity, as at the gate. */}
+				<div
+					inert={torn}
+					className={`relative flex origin-top-left flex-col rounded-b-[14px] border-perforation border-t-2 border-dashed bg-paper shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:rounded-r-[14px] @min-[640px]:rounded-bl-none transition-[transform,opacity] duration-700 ease-in motion-reduce:transition-none @min-[640px]:w-[196px] @min-[640px]:shrink-0 @min-[640px]:border-t-0 @min-[640px]:border-l-2 ${
+						torn
+							? "translate-x-3 translate-y-10 rotate-6 opacity-0 @min-[640px]:translate-x-14 @min-[640px]:translate-y-4 @min-[640px]:rotate-12"
+							: ""
+					}`}
+				>
+					<div className="hidden h-2.5 rounded-tr-[14px] bg-pass-accent @min-[640px]:block" />
 					<div className="flex flex-1 flex-col gap-3 px-5 pt-4 pb-5">
 						<span className="font-semibold text-paper-label text-xs uppercase tracking-[0.18em]">
 							{text.passStub}
@@ -173,6 +191,15 @@ export function PaperPass({
 							<span className="mt-auto font-semibold text-[13px] uppercase">
 								{pass.passengerName}
 							</span>
+						)}
+						{onRelive && (
+							<button
+								type="button"
+								onClick={onRelive}
+								className="h-11 rounded-md bg-pass-accent px-4 font-semibold text-paper text-sm"
+							>
+								{text.relive}
+							</button>
 						)}
 					</div>
 				</div>

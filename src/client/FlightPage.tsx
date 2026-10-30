@@ -1,9 +1,14 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo, useRef } from "react";
+import type { Airport } from "../shared/airport.ts";
+import type { FlightView } from "../shared/flight.ts";
 import { PaperPass } from "./components/PaperPass.tsx";
+import { ReplayControls, useReplay } from "./components/Replay.tsx";
 import { RequireSession } from "./components/RequireSession.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
+import { flightTiming } from "./lib/flight-time.ts";
 import { useFlight } from "./lib/queries.ts";
+import { isTorn } from "./lib/replay.ts";
 
 /** MapLibre is large: only the page of a flight loads it. */
 const FlightMap = lazy(() => import("./components/FlightMap.tsx"));
@@ -43,19 +48,77 @@ function FlightDetail() {
 			</div>
 			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
 			{isError && <p role="alert">{text.flightNotFound}</p>}
-			{flight && (
-				<PaperPass flight={flight} locale={document.documentElement.lang} />
-			)}
-			{flight?.originAirport && flight.destinationAirport && (
+			{flight &&
+				(flight.originAirport && flight.destinationAirport ? (
+					<FlightReplay
+						flight={flight}
+						origin={flight.originAirport}
+						destination={flight.destinationAirport}
+					/>
+				) : (
+					<PaperPass flight={flight} locale={document.documentElement.lang} />
+				))}
+		</main>
+	);
+}
+
+/** The pass, the map and the replay. The stub of the pass starts the replay. */
+function FlightReplay({
+	flight,
+	origin,
+	destination,
+}: Readonly<{ flight: FlightView; origin: Airport; destination: Airport }>) {
+	const mapRef = useRef<HTMLDivElement>(null);
+	const timing = useMemo(
+		() =>
+			flightTiming({
+				...flight,
+				originAirport: origin,
+				destinationAirport: destination,
+			}),
+		[flight, origin, destination],
+	);
+	const { state, dispatch, speed, setSpeed } = useReplay(timing, () =>
+		mapRef.current?.scrollIntoView({
+			behavior: globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")
+				.matches
+				? "auto"
+				: "smooth",
+			block: "center",
+		}),
+	);
+	const started = state.phase !== "idle";
+
+	return (
+		<>
+			<PaperPass
+				flight={flight}
+				locale={document.documentElement.lang}
+				torn={isTorn(state)}
+				onRelive={() => dispatch({ type: "play" })}
+			/>
+			<div ref={mapRef} className="flex scroll-mt-4 flex-col gap-3">
 				<Suspense
 					fallback={<div className="h-72 rounded-[14px] bg-map-land md:h-96" />}
 				>
 					<FlightMap
-						origin={flight.originAirport}
-						destination={flight.destinationAirport}
+						origin={origin}
+						destination={destination}
+						progress={started ? state.t : null}
 					/>
 				</Suspense>
-			)}
-		</main>
+				{started && (
+					<ReplayControls
+						state={state}
+						dispatch={dispatch}
+						speed={speed}
+						onSpeed={setSpeed}
+						timing={timing}
+						origin={origin}
+						destination={destination}
+					/>
+				)}
+			</div>
+		</>
 	);
 }
