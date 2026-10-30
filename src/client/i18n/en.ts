@@ -38,6 +38,7 @@ export const en = {
 	editFlightTitle: "Edit the flight",
 	flightNotFound: "This flight does not exist.",
 	backToArchive: "Back to your flights",
+	backToFlight: "Back to the flight",
 
 	fieldDesignator: "Flight",
 	fieldDesignatorHint: "For example AZ 784",
@@ -71,4 +72,19 @@ export const en = {
 	deleteFlight: "Delete the flight",
 	deleteConfirm: "Delete this flight? You cannot undo this.",
 	deleteFailed: "We could not delete the flight. Try again later.",
+	editFlight: "Edit",
+
+	passTitle: "Boarding pass",
+	passStub: "Stub",
+	passTo: "to",
+	passPassenger: "Passenger",
+	passDate: "Date",
+	passDeparts: "Departs",
+	passArrives: "Arrives",
+	passAirline: "Airline",
+	passClass: "Class",
+	passSeat: "Seat",
+	passBooking: "Booking",
+	passFlight: "Flight",
+	passNoValue: "—",
 };

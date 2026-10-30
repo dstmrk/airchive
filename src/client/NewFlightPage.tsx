@@ -17,7 +17,14 @@ export function NewFlightPage() {
 					{text.backToArchive}
 				</Link>
 				<h1 className="font-semibold text-2xl">{text.newFlightTitle}</h1>
-				<FlightForm onSaved={() => navigate({ to: "/" })} />
+				<FlightForm
+					onSaved={(flight) =>
+						navigate({
+							to: "/flights/$flightId",
+							params: { flightId: flight.id },
+						})
+					}
+				/>
 			</main>
 		</RequireSession>
 	);
