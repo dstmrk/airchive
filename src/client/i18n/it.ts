@@ -56,6 +56,8 @@ export const it: Messages = {
 	fieldBookingReference: "Codice di prenotazione (facoltativo)",
 	fieldJourney: "Viaggio",
 	fieldJourneyHint: "Metti insieme i voli di un viaggio con scali.",
+	fieldJourneySuggested:
+		"Questo volo parte dopo l'ultimo atterraggio di questo viaggio. Se serve, scegli un altro viaggio.",
 	journeyNew: "Un nuovo viaggio",
 
 	cabinNone: "Non indicata",
@@ -85,6 +87,7 @@ export const it: Messages = {
 	journeyDefaultTitle: "Il mio viaggio a",
 	journeyNotFound: "Questo viaggio non esiste.",
 	journeyRename: "Rinomina",
+	journeyAddFlight: "Aggiungi un altro volo a questo viaggio",
 	journeyTitleLabel: "Titolo del viaggio",
 	journeyTitleHint: "Lascialo vuoto per il titolo predefinito.",
 	journeySaveTitle: "Salva",

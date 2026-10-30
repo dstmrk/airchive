@@ -284,6 +284,14 @@ one journey.
   default text.
 - The archive lists the journeys, the most recent first. The form of a flight has the
   field "Trip" when the person has a journey.
+- The import reads one pass at a time. The page of a journey has the button "Add
+  another flight to this trip". It opens `/flights/new?journey=<id>`, and the form
+  departs from the last destination, on the day of the last arrival.
+- The form of a new flight chooses a journey until the person chooses one. The
+  journey is the most recent one whose last leg lands at the origin, 24 hours or less
+  before the departure. With no times, the same day or the next day decides.
+- 24 hours is the limit of a connection. A longer stop starts a new journey, thus the
+  return flight does not go into the journey of the outbound flight.
 
 The migration `0003_journey` gives each old flight a journey with the same identifier.
 drizzle-kit wrote `ALTER TABLE ... ADD ... NOT NULL` with no default, and SQLite refuses

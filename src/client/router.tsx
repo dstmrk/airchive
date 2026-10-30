@@ -8,6 +8,7 @@ import { FlightEditPage } from "./FlightEditPage.tsx";
 import { HomePage } from "./HomePage.tsx";
 import { JourneyPage } from "./JourneyPage.tsx";
 import { journeySearch } from "./lib/cabin.ts";
+import { newFlightSearch } from "./lib/journey.ts";
 import { NewFlightPage } from "./NewFlightPage.tsx";
 import { NotFoundPage } from "./NotFoundPage.tsx";
 import { SignInPage } from "./SignInPage.tsx";
@@ -40,9 +41,11 @@ const signInRoute = createRoute({
 	component: SignInPage,
 });
 
+/** `?journey=<id>` adds the new flight to that journey, as its next leg. */
 const newFlightRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/flights/new",
+	validateSearch: newFlightSearch,
 	component: NewFlightPage,
 });
 

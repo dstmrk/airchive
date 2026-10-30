@@ -30,11 +30,13 @@ export function useJourneys(enabled = true) {
 	});
 }
 
-export function useJourney(id: string) {
+/** With no identifier, the query sends no request. */
+export function useJourney(id: string | undefined) {
 	return useQuery({
 		queryKey: [...journeysKey, id],
 		queryFn: () =>
-			apiRequest<JourneyView>(`/api/journeys/${encodeURIComponent(id)}`),
+			apiRequest<JourneyView>(`/api/journeys/${encodeURIComponent(id ?? "")}`),
+		enabled: id !== undefined,
 		retry: false,
 	});
 }

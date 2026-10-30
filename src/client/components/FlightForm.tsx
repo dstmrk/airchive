@@ -19,7 +19,7 @@ import {
 	toPayload,
 } from "../lib/flight-form.ts";
 import { formatDate } from "../lib/format.ts";
-import { journeyTitle } from "../lib/journey.ts";
+import { journeyTitle, suggestJourney } from "../lib/journey.ts";
 import { useJourneys, useSaveFlight } from "../lib/queries.ts";
 import { AirportInput } from "./AirportInput.tsx";
 
@@ -65,6 +65,13 @@ export function FlightForm({
 	const [failed, setFailed] = useState(false);
 	const save = useSaveFlight(flight?.id);
 	const { data: journeys = [] } = useJourneys();
+	// Until the person chooses, a new flight goes to the journey that it continues.
+	const [journeyChosen, setJourneyChosen] = useState(false);
+	const suggestion =
+		!flight && !journeyChosen && values.journeyId === ""
+			? suggestJourney(journeys, values)
+			: null;
+	const journeyId = values.journeyId || suggestion?.id || "";
 	const locale = document.documentElement.lang;
 
 	// A change of a field removes its issue: the old message no longer describes the value.
@@ -80,7 +87,7 @@ export function FlightForm({
 	function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setFailed(false);
-		const result = toPayload(values);
+		const result = toPayload({ ...values, journeyId });
 		if ("issues" in result) {
 			setIssues(result.issues);
 			return;
@@ -206,8 +213,11 @@ export function FlightForm({
 							id={id}
 							aria-invalid={invalid}
 							aria-describedby={`${id}-hint`}
-							value={values.journeyId}
-							onChange={(event) => set("journeyId")(event.target.value)}
+							value={journeyId}
+							onChange={(event) => {
+								setJourneyChosen(true);
+								set("journeyId")(event.target.value);
+							}}
 							className={INPUT}
 						>
 							<option value="">{text.journeyNew}</option>
@@ -220,7 +230,7 @@ export function FlightForm({
 							))}
 						</select>
 						<p id={`${id}-hint`} className="text-muted-foreground text-sm">
-							{text.fieldJourneyHint}
+							{suggestion ? text.fieldJourneySuggested : text.fieldJourneyHint}
 						</p>
 					</>
 				))}

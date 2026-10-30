@@ -56,6 +56,8 @@ export const en = {
 	fieldBookingReference: "Booking reference (optional)",
 	fieldJourney: "Trip",
 	fieldJourneyHint: "Put the flights of one trip with connections together.",
+	fieldJourneySuggested:
+		"This flight departs after the last landing of this trip. Choose another trip if necessary.",
 	journeyNew: "A new trip",
 
 	cabinNone: "Not given",
@@ -84,6 +86,7 @@ export const en = {
 	journeyDefaultTitle: "My trip to",
 	journeyNotFound: "This trip does not exist.",
 	journeyRename: "Rename",
+	journeyAddFlight: "Add another flight to this trip",
 	journeyTitleLabel: "Title of the trip",
 	journeyTitleHint: "Leave it empty for the default title.",
 	journeySaveTitle: "Save",

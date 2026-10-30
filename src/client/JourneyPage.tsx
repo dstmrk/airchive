@@ -72,6 +72,15 @@ function JourneyDetail() {
 			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
 			{isError && <p role="alert">{text.journeyNotFound}</p>}
 			{journey && <JourneyTitle journey={journey} />}
+			{journey && (
+				<Link
+					to="/flights/new"
+					search={{ journey: journey.id }}
+					className="flex h-11 items-center justify-center rounded-md border border-foreground/20 px-4 font-medium"
+				>
+					{text.journeyAddFlight}
+				</Link>
+			)}
 			{journey &&
 				(legs ? (
 					<JourneyReplay flights={journey.flights} legs={legs} />
