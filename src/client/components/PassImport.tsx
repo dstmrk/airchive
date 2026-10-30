@@ -3,8 +3,11 @@ import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
 import { apiRequest } from "../lib/api.ts";
-import { MAX_FILE_BYTES } from "../lib/pkpass/extract.ts";
-import { type ImportError, importPass } from "../lib/pkpass/import.ts";
+import {
+	type ImportError,
+	importFile,
+	MAX_IMAGE_BYTES,
+} from "../lib/pkpass/import.ts";
 import type { ImportedValues } from "../lib/pkpass/to-form.ts";
 
 const ERROR_TEXT: Record<ImportError, keyof Messages> = {
@@ -13,7 +16,15 @@ const ERROR_TEXT: Record<ImportError, keyof Messages> = {
 	pass_json_too_large: "importNotAPass",
 	not_boarding_pass: "importNotBoardingPass",
 	no_flight_data: "importNoFlightData",
+	pdf_not_supported: "importPdf",
+	no_barcode: "importNoBarcode",
 };
+
+/** ZXing is large: only the import of an image loads it. */
+async function readBarcode(bytes: Uint8Array): Promise<string | null> {
+	const { readBarcodeImage } = await import("../lib/barcode/image.ts");
+	return readBarcodeImage(bytes);
+}
 
 async function findAirport(code: string): Promise<Airport | null> {
 	const results = await apiRequest<Airport[]>(
@@ -28,7 +39,8 @@ export type ImportedPass = {
 };
 
 /**
- * The import of a `.pkpass` file. The browser reads the file; it does not go
+ * The import of a `.pkpass` file or of an image of a barcode. The browser
+ * reads the file; it does not go
  * to the server. Paragraph 3.2 of `docs/architecture.md` gives the rules.
  */
 export function PassImport({
@@ -47,14 +59,15 @@ export function PassImport({
 		if (!file) {
 			return;
 		}
-		if (file.size > MAX_FILE_BYTES) {
+		if (file.size > MAX_IMAGE_BYTES) {
 			setState("file_too_large");
 			return;
 		}
 		setState("reading");
-		const result = await importPass(new Uint8Array(await file.arrayBuffer()), {
+		const result = await importFile(new Uint8Array(await file.arrayBuffer()), {
 			findAirport,
 			today: new Date().toISOString().slice(0, 10),
+			readBarcode,
 		});
 		if ("error" in result) {
 			setState(result.error);
@@ -77,12 +90,14 @@ export function PassImport({
 				type="file"
 				// No `accept`: Safari on iOS greys out a .pkpass file for
 				// ".pkpass,application/vnd.apple.pkpass". The content decides,
-				// in extract.ts: any other file gives "not a pass".
+				// in importFile: a zip, a PDF file or an image.
 				onChange={onChange}
 				disabled={state === "reading"}
 				className="sr-only"
 			/>
-			<p className="text-muted-foreground text-xs">{text.importPrivacy}</p>
+			<p className="text-muted-foreground text-xs">
+				{text.importHint} {text.importPrivacy}
+			</p>
 			{state === "done" && (
 				<p role="status" className="font-medium text-sm">
 					{text.importDone}
