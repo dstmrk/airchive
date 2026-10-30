@@ -7,6 +7,7 @@ import {
 import { FlightEditPage } from "./FlightEditPage.tsx";
 import { FlightPage } from "./FlightPage.tsx";
 import { HomePage } from "./HomePage.tsx";
+import { flightSearch } from "./lib/cabin.ts";
 import { NewFlightPage } from "./NewFlightPage.tsx";
 import { NotFoundPage } from "./NotFoundPage.tsx";
 import { SignInPage } from "./SignInPage.tsx";
@@ -45,9 +46,11 @@ const newFlightRoute = createRoute({
 	component: NewFlightPage,
 });
 
+/** `?replay=true` opens the cabin of the replay. Paragraph 5.6 of `docs/architecture.md`. */
 const flightRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/flights/$flightId",
+	validateSearch: flightSearch,
 	component: FlightPage,
 });
 

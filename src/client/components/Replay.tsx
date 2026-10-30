@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
@@ -18,6 +19,7 @@ import {
 	SPEEDS,
 	type SpeedId,
 } from "../lib/replay.ts";
+import { withViewTransition } from "../lib/view-transition.ts";
 
 /** The time of the tear of the stub. It is also the duration of its CSS transition. */
 export const TEAR_MS = 700;
@@ -39,23 +41,31 @@ const reducedMotion = () =>
 	globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
 /**
- * The state of the replay and its clock. `onBoarding` runs when the stub
- * tears, for example to show the map.
+ * Animates the opening and the closing of the cabin. The element with the
+ * `view-transition-name` moves from its place on the page to the full screen.
  */
-export function useReplay(timing: FlightTiming, onBoarding: () => void) {
+export function cabinTransition(update: () => void) {
+	const start = document.startViewTransition?.bind(document);
+	// The browser takes the new image after the callback, thus React must render in it.
+	// Without a transition, `flushSync` is not necessary, and an effect cannot call it.
+	withViewTransition(update, {
+		reduce: reducedMotion(),
+		start: start && ((callback) => start(() => flushSync(callback))),
+	});
+}
+
+/** The state of the replay and its clock. The cabin opens at the end of the tear. */
+export function useReplay(timing: FlightTiming) {
 	const [state, dispatch] = useReducer(replay, initialReplay);
 	const [speed, setSpeed] = useState<SpeedId>(DEFAULT_SPEED);
 	const length = replayMs(speed, timing.durationMs);
-	const boardingRef = useRef(onBoarding);
-	boardingRef.current = onBoarding;
 
 	useEffect(() => {
 		if (state.phase !== "boarding") {
 			return;
 		}
-		boardingRef.current();
 		const timer = setTimeout(
-			() => dispatch({ type: "boarded" }),
+			() => cabinTransition(() => dispatch({ type: "boarded" })),
 			reducedMotion() ? 0 : TEAR_MS,
 		);
 		return () => clearTimeout(timer);

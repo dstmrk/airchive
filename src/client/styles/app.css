@@ -91,3 +91,9 @@
 		font-family: var(--font-sans);
 	}
 }
+
+/* The cabin of the replay: the map moves from the page to the full screen. */
+::view-transition-group(replay-cabin) {
+	animation-duration: 450ms;
+	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
