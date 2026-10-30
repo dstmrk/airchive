@@ -44,7 +44,8 @@ server code. Paragraph 5.2 of `docs/architecture.md` gives the rules.
 - Server: Hono. One Worker supplies the API and the client files from one origin.
 - Client: Vite, React 19, TanStack Router
 - User interface: Tailwind CSS v4, shadcn/ui
-- Database: Cloudflare D1 (SQLite)
+- Database: Cloudflare D1 (SQLite). Schema and migrations with Drizzle.
+- Authentication: Better Auth, magic link, Resend
 - Tests: Vitest. Lint and format: Biome.
 
 The project has one `package.json`. Do not add a monorepo tool.
@@ -52,7 +53,8 @@ The project has one `package.json`. Do not add a monorepo tool.
 Write the extension in a relative import: `import { x } from "./x.ts"`.
 
 `worker-configuration.d.ts` comes from `wrangler types`. After a change to
-`wrangler.jsonc`, run `npm run cf-typegen`. The CI fails when that file is old.
+`wrangler.jsonc` or to `.dev.vars.example`, run `npm run cf-typegen`. The CI fails when
+that file is old. A new secret needs its name in `.dev.vars.example`.
 
 ## Rules for the work
 
@@ -102,6 +104,17 @@ A boarding pass holds personal data. These rules prevent the most dangerous defe
 
 Paragraph 3.2 of `docs/architecture.md` gives the reasons.
 
+These rules apply to the tables and to the auth:
+
+- Change `src/server/db/schema.ts`, then run `npm run db:generate`. Do not write a
+  migration by hand. Commit the migration of `drizzle/`.
+- After a change of the options of Better Auth, compare `schema.ts` with
+  `getAuthTables` of `better-auth/db`. A plugin can need a new table.
+- A test of the server that needs D1 uses `createTestD1` of `src/server/test/d1.ts`. Do
+  not write a false D1 binding for SQL: the false binding does not examine the SQL.
+- Better Auth skips the check of the origin when `NODE_ENV` is `test`. Keep
+  `disableOriginCheck: false` in `auth.ts`, or the tests do not examine that check.
+
 ## Rules for the user interface
 
 - The interface is mobile first. Design for a width of 360 pixels first.
@@ -133,12 +146,19 @@ examine `.claude/`, `drizzle/` or `worker-configuration.d.ts`.
 Run these commands for development:
 
 ```bash
-npm run dev        # Vite and the Worker in workerd, on the port 5173
-npm run build      # the client in dist/client, the Worker in dist/airchive
-npm run cf-typegen # writes worker-configuration.d.ts from wrangler.jsonc
+cp .dev.vars.example .dev.vars # then give BETTER_AUTH_SECRET and BETTER_AUTH_URL
+npm run db:migrate:local       # applies the migrations to the local D1 database
+npm run dev                    # Vite and the Worker in workerd, on the port 5173
+npm run build                  # the client in dist/client, the Worker in dist/airchive
+npm run cf-typegen             # writes worker-configuration.d.ts
+npm run db:generate            # writes a migration after a change of schema.ts
 ```
 
-`npm run dev` makes a local D1 database in `.wrangler/`. That directory stays out of git.
+`npm run dev` uses a local D1 database in `.wrangler/`. That directory stays out of git.
+With no `RESEND_API_KEY`, the magic link is in the log of `npm run dev`.
+
+`npm run deploy` applies the migrations to the remote database and deploys. Workers
+Builds runs it after each merge on `main`. Do not run it from a session.
 
 The workflow `.github/workflows/ci.yml` runs the tests, the check of the generated
 types, the typecheck, Biome, the build and the test suites of the hooks. It runs for

@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { HomePage } from "./HomePage.tsx";
 import { NotFoundPage } from "./NotFoundPage.tsx";
+import { SignInPage } from "./SignInPage.tsx";
 
 /**
  * The routes of the client, with code and no generator of files. The asset
@@ -23,8 +24,20 @@ const homeRoute = createRoute({
 	component: HomePage,
 });
 
+/**
+ * The page of the sign-in. Better Auth sends the person back here with
+ * `?error=<code>` when a magic link does not open a session.
+ */
+const signInRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/sign-in",
+	validateSearch: (search: Record<string, unknown>): { error?: string } =>
+		typeof search.error === "string" ? { error: search.error } : {},
+	component: SignInPage,
+});
+
 export const router = createRouter({
-	routeTree: rootRoute.addChildren([homeRoute]),
+	routeTree: rootRoute.addChildren([homeRoute, signInRoute]),
 });
 
 declare module "@tanstack/react-router" {

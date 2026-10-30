@@ -1,0 +1,16 @@
+# The secrets of the Worker. Copy this file to `.dev.vars` for `npm run dev`,
+# and give each value. In production, the settings of the Worker in the
+# Cloudflare dashboard hold the secrets. Refer to paragraph 4.1 of
+# docs/architecture.md.
+#
+# `wrangler types --env-file .dev.vars.example` reads the names of this file,
+# thus `Env` holds each secret. A new secret needs a line here.
+
+# Any random value of 32 characters or more: `openssl rand -base64 32`.
+BETTER_AUTH_SECRET=
+
+# Empty in development: the Worker writes the magic link to the log.
+RESEND_API_KEY=
+
+# Development only. The value of wrangler.jsonc is the domain of production.
+BETTER_AUTH_URL=
