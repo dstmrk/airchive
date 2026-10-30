@@ -27,17 +27,17 @@ export const it: Messages = {
 	signedInAs: "Accesso come",
 	signOut: "Esci",
 
-	archiveTitle: "I tuoi voli",
-	archiveEmpty: "Ancora nessun volo. Aggiungi il primo.",
+	archiveTitle: "I tuoi viaggi",
+	archiveEmpty: "Ancora nessun viaggio. Aggiungi il tuo primo volo.",
 	archiveLoadFailed:
-		"Non siamo riusciti a caricare i tuoi voli. Riprova più tardi.",
+		"Non siamo riusciti a caricare i tuoi viaggi. Riprova più tardi.",
 	addFlight: "Aggiungi un volo",
 	loading: "Caricamento…",
 
 	newFlightTitle: "Aggiungi un volo",
 	editFlightTitle: "Modifica il volo",
 	flightNotFound: "Questo volo non esiste.",
-	backToArchive: "Torna ai tuoi voli",
+	backToArchive: "Torna ai tuoi viaggi",
 	backToJourney: "Torna al viaggio",
 
 	fieldDesignator: "Volo",

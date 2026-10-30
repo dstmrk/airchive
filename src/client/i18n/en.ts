@@ -28,16 +28,16 @@ export const en = {
 	signedInAs: "Signed in as",
 	signOut: "Sign out",
 
-	archiveTitle: "Your flights",
-	archiveEmpty: "No flights yet. Add the first one.",
-	archiveLoadFailed: "We could not load your flights. Try again later.",
+	archiveTitle: "Your trips",
+	archiveEmpty: "No trips yet. Add your first flight.",
+	archiveLoadFailed: "We could not load your trips. Try again later.",
 	addFlight: "Add a flight",
 	loading: "Loading…",
 
 	newFlightTitle: "Add a flight",
 	editFlightTitle: "Edit the flight",
 	flightNotFound: "This flight does not exist.",
-	backToArchive: "Back to your flights",
+	backToArchive: "Back to your trips",
 	backToJourney: "Back to the trip",
 
 	fieldDesignator: "Flight",
