@@ -99,3 +99,23 @@
 	animation-duration: 450ms;
 	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
+
+/*
+ * The paper of the pass casts the shadow. A drop-shadow follows the mask of
+ * the paper, thus the notches have a shadow and no disc covers it.
+ */
+@utility pass-shadow {
+	filter: drop-shadow(0 1px 0 #d8cfbd)
+		drop-shadow(0 10px 12px rgb(60 45 20 / 0.12));
+}
+
+/*
+ * Two notches cut into the paper, with their centres at `--notch-a` and
+ * `--notch-b`. The page shows through the holes.
+ */
+@utility notched {
+	mask:
+		radial-gradient(circle at var(--notch-a), #0000 12px, #000 12.5px),
+		radial-gradient(circle at var(--notch-b), #0000 12px, #000 12.5px);
+	mask-composite: intersect;
+}
