@@ -111,7 +111,10 @@ These rules apply to the tables and to the auth:
 - After a change of the options of Better Auth, compare `schema.ts` with
   `getAuthTables` of `better-auth/db`. A plugin can need a new table.
 - A test of the server that needs D1 uses `createTestD1` of `src/server/test/d1.ts`. Do
-  not write a false D1 binding for SQL: the false binding does not examine the SQL.
+  not write a false D1 binding for SQL: the false binding does not examine the SQL. A
+  test that needs a session uses `signIn` of `src/server/test/session.ts`.
+- Do not edit `airports.json` by hand. Change `scripts/airports/merge.ts`, then run
+  `npm run airports:build`. The file never removes a code: a flight holds only codes.
 - Better Auth skips the check of the origin when `NODE_ENV` is `test`. Keep
   `disableOriginCheck: false` in `auth.ts`, or the tests do not examine that check.
 
@@ -141,7 +144,7 @@ npm run fix       # Biome, it writes the corrections
 ```
 
 Biome writes tab indentation. Run `npm run fix` after you add a file. Biome does not
-examine `.claude/`, `drizzle/` or `worker-configuration.d.ts`.
+examine `.claude/`, `drizzle/`, `worker-configuration.d.ts` or `airports.json`.
 
 Run these commands for development:
 
@@ -152,6 +155,7 @@ npm run dev                    # Vite and the Worker in workerd, on the port 517
 npm run build                  # the client in dist/client, the Worker in dist/airchive
 npm run cf-typegen             # writes worker-configuration.d.ts
 npm run db:generate            # writes a migration after a change of schema.ts
+npm run airports:build         # writes src/server/airports/airports.json from the sources
 ```
 
 `npm run dev` uses a local D1 database in `.wrangler/`. That directory stays out of git.

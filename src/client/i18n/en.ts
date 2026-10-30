@@ -27,4 +27,48 @@ export const en = {
 
 	signedInAs: "Signed in as",
 	signOut: "Sign out",
+
+	archiveTitle: "Your flights",
+	archiveEmpty: "No flights yet. Add the first one.",
+	archiveLoadFailed: "We could not load your flights. Try again later.",
+	addFlight: "Add a flight",
+	loading: "Loading…",
+
+	newFlightTitle: "Add a flight",
+	editFlightTitle: "Edit the flight",
+	flightNotFound: "This flight does not exist.",
+	backToArchive: "Back to your flights",
+
+	fieldDesignator: "Flight",
+	fieldDesignatorHint: "For example AZ 784",
+	fieldAirlineName: "Airline (optional)",
+	fieldOrigin: "From",
+	fieldDestination: "To",
+	fieldAirportHint: "City, airport or code",
+	fieldDepartureDate: "Departure date",
+	fieldDepartureTime: "Departure time (optional)",
+	fieldArrivalDate: "Arrival date (optional)",
+	fieldArrivalTime: "Arrival time (optional)",
+	fieldSeat: "Seat (optional)",
+	fieldCabinClass: "Class (optional)",
+	fieldPassengerName: "Passenger name (optional)",
+	fieldBookingReference: "Booking reference (optional)",
+
+	cabinNone: "Not given",
+	cabinEconomy: "Economy",
+	cabinPremiumEconomy: "Premium economy",
+	cabinBusiness: "Business",
+	cabinFirst: "First",
+
+	issueInvalid: "This value is not valid.",
+	issueSameAirport: "The destination must be different from the origin.",
+	issueArrivalBeforeDeparture: "The arrival cannot be before the departure.",
+	issueUnknownAirport: "We do not know this airport. Choose one from the list.",
+
+	saveFlight: "Save",
+	saving: "Saving…",
+	saveFailed: "We could not save the flight. Try again later.",
+	deleteFlight: "Delete the flight",
+	deleteConfirm: "Delete this flight? You cannot undo this.",
+	deleteFailed: "We could not delete the flight. Try again later.",
 };

@@ -9,8 +9,14 @@ import {
 } from "vitest";
 import { app } from "./app.ts";
 import { createTestD1 } from "./test/d1.ts";
-
-const ORIGIN = "http://localhost:5173";
+import {
+	loggedLink,
+	nextIp,
+	TEST_ORIGIN as ORIGIN,
+	requestLink as requestLinkFor,
+	cookiesOf as sessionCookie,
+	testEnv,
+} from "./test/session.ts";
 
 let db: D1Database;
 let dispose: () => Promise<void>;
@@ -24,54 +30,11 @@ afterAll(async () => {
 });
 
 function env(overrides: Partial<Env> = {}): Env {
-	return {
-		DB: db,
-		BETTER_AUTH_URL: ORIGIN,
-		BETTER_AUTH_SECRET: "a-secret-for-the-tests-and-for-no-server-0123456789",
-		RESEND_API_KEY: "",
-		EMAIL_FROM: "airchive <login@airchive.9874848.xyz>",
-		...overrides,
-	} as Env;
+	return testEnv(db, overrides);
 }
 
-let ip = 0;
-/** Each test has its own address, thus the rate limit of a test stays alone. */
-function nextIp(): string {
-	ip += 1;
-	return `203.0.113.${ip}`;
-}
-
-/** It asks for a magic link and gives the link that the Worker writes to the log. */
-async function requestLink(email: string, clientIp: string): Promise<Response> {
-	return app.request(
-		"/api/auth/sign-in/magic-link",
-		{
-			method: "POST",
-			headers: {
-				"content-type": "application/json",
-				origin: ORIGIN,
-				"cf-connecting-ip": clientIp,
-			},
-			body: JSON.stringify({ email, callbackURL: "/" }),
-		},
-		env(),
-	);
-}
-
-function loggedLink(info: ReturnType<typeof vi.spyOn>): string {
-	const line = String(info.mock.calls.at(-1)?.[0] ?? "");
-	const match = /(http\S+)$/.exec(line);
-	if (match?.[1] === undefined) {
-		throw new Error(`No link in the log: ${line}`);
-	}
-	return match[1];
-}
-
-function sessionCookie(response: Response): string {
-	return response.headers
-		.getSetCookie()
-		.map((cookie) => cookie.split(";")[0])
-		.join("; ");
+function requestLink(email: string, clientIp: string): Promise<Response> {
+	return requestLinkFor(env(), email, clientIp);
 }
 
 let info: ReturnType<typeof vi.spyOn>;
