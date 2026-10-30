@@ -148,7 +148,10 @@ the most reliable first:
    the day of the year and no year: the date is the most recent one on or before the
    `relevantDate` of the pass, or today.
 3. The free fields of the pass, by key or by label. The first two primary fields give
-   the airports.
+   the airports. A field of the departure gives the time, in 24 hours. The labels of
+   the boarding and of the gate do not match. A field of the class or the cabin gives
+   the cabin from its text, in English or in Italian. The letter of the BCBP barcode
+   comes first, because the text of a field changes with each airline.
 
 `relevantDate` gives only a day: it is often the time of the boarding, not of the
 departure. The `backgroundColor` of the pass becomes the accent of the paper boarding
