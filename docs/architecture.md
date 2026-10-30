@@ -570,6 +570,23 @@ the altitude are simulated.
 When the replay starts, the map keeps the aircraft at the centre. A drag of the map
 stops the follow, and a tap of the aircraft starts it again.
 
+During the replay, the map shows the night. `src/client/lib/terminator.ts` holds the
+logic, with tests:
+
+- The terminator needs a real time, thus the map shows it only for a flight with a
+  departure time. The time of the replay is linear, as the clocks.
+- The approximation of the Astronomical Almanac gives the declination and the equation
+  of time. The error is approximately 0.01 degrees. The project has no package for it.
+- The dark area is a circle around the antisolar point. When the circle holds a pole,
+  the ring goes from -180 to 180 and closes along the pole.
+- Two areas have the same ink colour, `--color-map-night`: after the sunset (-0.833°)
+  and after the civil dusk (-6°). Where they overlap, the night is darker. Thus the
+  band of the civil twilight is lighter.
+- The map calculates the areas again only at a new simulated minute. In one minute the
+  terminator moves 0.25 degrees.
+- The layers have no antialias. The outline of the antialias drew a line at the
+  antimeridian, along the edge of the ring.
+
 In real time, the Wake Lock API keeps the screen of a telephone on. If the browser
 refuses the lock, the replay continues.
 
