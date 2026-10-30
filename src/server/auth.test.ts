@@ -95,6 +95,35 @@ describe("the magic link", () => {
 		expect(stored).not.toContain(String(token));
 	});
 
+	it("sends the email in the language of the browser", async () => {
+		const sent = vi.fn<typeof fetch>(
+			async () => new Response("{}", { status: 200 }),
+		);
+		vi.stubGlobal("fetch", sent);
+		try {
+			const response = await app.request(
+				"/api/auth/sign-in/magic-link",
+				{
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						origin: ORIGIN,
+						"cf-connecting-ip": nextIp(),
+						"accept-language": "it-IT,it;q=0.9,en;q=0.8",
+					},
+					body: JSON.stringify({ email: "italiano@example.com" }),
+				},
+				env({ RESEND_API_KEY: "re_test_key" }),
+			);
+
+			expect(response.status).toBe(200);
+			const body = JSON.parse(String(sent.mock.calls[0]?.[1]?.body));
+			expect(body.subject).toBe("Il tuo link di accesso ad airchive");
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it("refuses a callback to another origin and sends no email", async () => {
 		// A link that sends the person to another site after the sign-in is
 		// an open redirect. Better Auth compares the callback with

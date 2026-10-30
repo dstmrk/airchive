@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAGIC_LINK_TTL_MINUTES } from "../../shared/auth.ts";
-import { LOCALES } from "./locale.ts";
-import { messages } from "./messages.ts";
+import { LOCALES } from "../../shared/locale.ts";
+import { type Messages, messages } from "./messages.ts";
 
 /**
  * The type `Messages` makes a missing key a compile error. These tests examine
@@ -30,4 +30,30 @@ describe("the text of the sign-in", () => {
 			);
 		},
 	);
+});
+
+describe("the Italian catalogue", () => {
+	/** The texts that are the same in the two languages: names, codes and units. */
+	const SAME_IN_ITALIAN = new Set([
+		"appName",
+		"signInEmailLabel",
+		"cabinEconomy",
+		"cabinPremiumEconomy",
+		"cabinBusiness",
+		"passNoValue",
+		"speed15s",
+		"speed30s",
+		"speed1min",
+		"speed5min",
+		"speed4x",
+	]);
+
+	it("translates each text that is not a name, a code or a unit", () => {
+		const untranslated = Object.entries(messages.it)
+			.filter(([key, value]) => value === messages.en[key as keyof Messages])
+			.map(([key]) => key)
+			.filter((key) => !SAME_IN_ITALIAN.has(key));
+
+		expect(untranslated).toEqual([]);
+	});
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendMagicLinkEmail } from "./email.ts";
+import { localeOfRequest, sendMagicLinkEmail } from "./email.ts";
 
 const production = {
 	RESEND_API_KEY: "re_test_key",
@@ -10,7 +10,8 @@ const production = {
 const link = {
 	to: "person@example.com",
 	url: "https://airchive.9874848.xyz/api/auth/magic-link/verify?token=abc",
-};
+	locale: "en",
+} as const;
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -102,5 +103,34 @@ describe("sendMagicLinkEmail", () => {
 				fetchFn,
 			),
 		).rejects.toThrow("RESEND_API_KEY");
+	});
+});
+
+describe("the language of the email", () => {
+	it("sends the Italian text for the locale it", async () => {
+		const fetchFn = vi.fn<typeof fetch>(
+			async () => new Response("{}", { status: 200 }),
+		);
+
+		await sendMagicLinkEmail(production, { ...link, locale: "it" }, fetchFn);
+
+		const body = JSON.parse(String(fetchFn.mock.calls[0]?.[1]?.body));
+		expect(body.subject).toContain("accesso");
+		expect(body.html).toContain(">Accedi</a>");
+	});
+
+	it.each([
+		["it-IT,it;q=0.9,en;q=0.8", "it"],
+		["en-GB,en;q=0.9", "en"],
+		["de-DE", "en"],
+		[null, "en"],
+	])("reads %j as %s", (header, locale) => {
+		const headers = new Headers(header ? { "accept-language": header } : {});
+
+		expect(localeOfRequest(headers)).toBe(locale);
+	});
+
+	it("gives English with no headers", () => {
+		expect(localeOfRequest(undefined)).toBe("en");
 	});
 });
