@@ -70,6 +70,20 @@
 	--color-pass-accent: #1f5f74;
 }
 
+/**
+ * The colours of the map. `static` writes each variable to :root also when no
+ * class uses it, because `FlightMap.tsx` reads them with getComputedStyle and
+ * gives them to MapLibre. Refer to paragraph 5.5 of docs/architecture.md.
+ */
+@theme static {
+	--color-map-land: #f1ebde;
+	--color-map-land-detail: #e9e1d0;
+	--color-map-water: #d3d9d4;
+	--color-map-boundary: #b9ab90;
+	--color-map-road: #e6dccb;
+	--color-map-label: #6b6153;
+}
+
 @layer base {
 	body {
 		background-color: var(--color-background);

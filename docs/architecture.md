@@ -38,12 +38,13 @@ These constraints control all the decisions in this document:
 | Files | Cloudflare R2 | The logo and the icon of an airline only. Refer to paragraph 3.2. |
 | Schema and migrations | Drizzle and drizzle-kit | The same tools as Yume. |
 | Authentication | Better Auth, magic link, Resend | Refer to paragraph 4. |
-| Map | mapcn (MapLibre GL), OpenFreeMap tiles | Refer to paragraph 5.5. |
+| Map | react-map-gl on MapLibre GL, OpenFreeMap tiles | Refer to paragraph 5.5. |
 | Tests | Vitest | |
 | Lint and format | Biome | One tool in the place of ESLint and Prettier. |
 
 Each package arrives with the slice that uses it. The authentication added Better Auth
-and Drizzle. The flight table added Zod and TanStack Query. mapcn is not installed yet.
+and Drizzle. The flight table added Zod and TanStack Query. The map added `maplibre-gl`
+and `react-map-gl`.
 
 The structure of the repository comes from Yume (`dstmrk/yume`). The map component comes
 from prezzi-carburante (`dstmrk/prezzi-carburante`). The rules of the process come from
@@ -322,15 +323,32 @@ the flight does not have shows `—`.
 
 ### 5.5 The map
 
-The map uses mapcn, which gives MapLibre GL components in the style of shadcn/ui. The
-component comes from prezzi-carburante with two changes:
+The page of a flight shows the route under the pass. The map uses `react-map-gl` on
+MapLibre GL, the standard React binding of MapLibre.
 
-- The tiles come from OpenFreeMap, not from CARTO. OpenFreeMap needs no key and permits
-  commercial use. The terms of CARTO for a public application are not clear.
-- The bundle supplies the worker of MapLibre, not a CDN. Thus the CSP stays on `'self'`.
+The team examined the component mapcn of prezzi-carburante. It has 2,700 lines with
+markers, popups, clusters and themes. airchive needs a line and two points, thus
+`src/client/components/FlightMap.tsx` uses `react-map-gl` directly in about 150 lines.
 
-The style of the map uses the colours of paper of paragraph 5.4. The style is one URL,
-thus a change of the provider is a change of one line.
+These rules apply:
+
+- The tiles come from OpenFreeMap: no key, commercial use permitted. The terms of CARTO,
+  the default of mapcn, are not clear for a public application. The style is one URL,
+  thus a change of the provider is a change of one line.
+- The bundle supplies the worker of MapLibre, not a CDN, as in prezzi-carburante.
+- `src/client/lib/paper-map-style.ts` changes the colours of the style `positron` before
+  the map loads it: paper land, grey-green water, sepia boundaries and labels. The rules
+  use the type and the name of each layer, thus a new layer of OpenFreeMap gets the
+  colour of its kind. `app.css` holds the colours as tokens `--color-map-*`.
+- The route is the great circle of `src/client/lib/great-circle.ts`, a dashed line in
+  the accent of the pass. The longitudes are continuous across the antimeridian, thus
+  Tokyo to Los Angeles is one line over the Pacific.
+- The codes of the airports on the map use JetBrains Mono, as on the pass.
+- The credit to OpenFreeMap, OpenMapTiles and OpenStreetMap is a line under the map. The
+  control of MapLibre opened at load and covered a third of the map on a telephone.
+- The page loads the map lazily. MapLibre is approximately 300 KB with gzip, and the
+  archive does not load it.
+- `cooperativeGestures` is on: one finger scrolls the page, two fingers move the map.
 
 ### 5.6 Relive your flight
 

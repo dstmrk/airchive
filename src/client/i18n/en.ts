@@ -87,4 +87,8 @@ export const en = {
 	passBooking: "Booking",
 	passFlight: "Flight",
 	passNoValue: "—",
+
+	mapLabel: "Map of the route",
+	mapUnavailable: "The map is not available now.",
+	mapContributors: "contributors",
 };
