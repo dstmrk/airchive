@@ -100,9 +100,10 @@ A person adds a flight in one of three ways, in this order:
 1. **A `.pkpass` file.** The file is a zip archive with `pass.json`. Since iOS 12, many
    airlines add the semantic tags (`departureAirportCode`, `originalDepartureDate` and
    others). Those tags give the most data: times, terminal, gate, colours.
-2. **A barcode in an image or in a PDF file.** Each boarding pass holds a barcode in the
-   format IATA BCBP (Resolution 792). The barcode gives the name, the booking reference,
-   the airports, the flight, the date and the seat. It gives no time and no year.
+2. **A barcode in an image**, or in a screenshot of a PDF file. Each boarding pass holds
+   a barcode in the format IATA BCBP (Resolution 792). The barcode gives the name, the
+   booking reference, the airports, the flight, the date and the seat. It gives no time
+   and no year.
 3. **Manual input.** For a flight with no boarding pass.
 
 Android has no file format for a pass. Google Wallet makes a pass on the server with its
@@ -181,6 +182,32 @@ On an iPhone, a pass that is only in Wallet is not a file. The person saves the
 
 The import does not verify the signature of the pass. The form and its schema examine
 the data, and an archive of keepsakes needs no proof of origin.
+
+#### The barcode in an image
+
+One button imports a `.pkpass` file or an image. `importFile` of
+`src/client/lib/pkpass/import.ts` reads the first bytes of the file, not its name:
+
+- A zip archive is a `.pkpass` file, with the limits above.
+- A PDF file is not read. The message asks for a screenshot of the barcode. A renderer
+  of PDF files (pdf.js) adds approximately 510 KB with gzip and a large attack surface.
+  On a telephone, a screenshot is two taps.
+- Another file goes to the browser as an image, up to 20 MB. The browser decodes it, also
+  HEIC on Safari, and it throws when the file is not an image.
+
+`src/client/lib/barcode/image.ts` reduces the image to 3,000 pixels on the longest side.
+Then `zxing-wasm` (the reader of ZXing in WebAssembly) reads the PDF417, Aztec, QR and
+Data Matrix codes. The first text that `parseBcbp` accepts fills the form. A code that is
+not a boarding pass, for example a link, gives a message. The barcode gives no time, and
+the date is the most recent day of the barcode on or before today.
+
+ZXing is approximately 410 KB with gzip. Only the import of an image loads it. The bundle
+serves its `.wasm` file: the default of the package is the CDN jsDelivr, and the import
+must not depend on an external service or tell it about the import.
+
+ZXing does not read a PDF417 code that is turned by more than approximately 5°. The
+square codes (Aztec and QR) can have any angle. Thus the message asks for a straight
+image.
 
 The logo and the icon of the airline are not imported yet. Their upload to R2 is a
 separate slice, with its own limits for images.
@@ -530,7 +557,7 @@ and the open checks.
 | 5 | The map and the great circle | #7 |
 | 6 | Relive your flight | #8 |
 | 7 | The parser of `.pkpass` files | #9 |
-| 8 | The parser of BCBP barcodes from an image or a PDF file | #10 |
+| 8 | The BCBP barcode from an image | #10 |
 | 9 | The public page of a shared flight, with the preview | #11 |
 | 10 | The Italian catalogue | #12 |
 

@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import type { Airport } from "../../../shared/airport.ts";
-import { importPass } from "./import.ts";
+import { importFile, importPass, MAX_IMAGE_BYTES } from "./import.ts";
 
 const airports: Record<string, Airport> = {
 	FCO: {
@@ -98,5 +98,83 @@ describe("importPass", () => {
 		);
 
 		expect(result).toEqual({ error: "no_flight_data" });
+	});
+});
+
+describe("importFile", () => {
+	const BCBP = "M1TRAVELER/ALEX MR    EK7Q2XD FCONRTAZ 0784 133Y014A0042 100";
+	const options = (
+		readBarcode: (bytes: Uint8Array) => Promise<string | null>,
+	) => ({
+		findAirport: async (code: string) => airports[code] ?? null,
+		today: "2024-06-01",
+		readBarcode,
+	});
+	const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+
+	it("reads a .pkpass file as a pass, not as an image", async () => {
+		const readBarcode = vi.fn(async () => null);
+
+		const result = await importFile(pkpass(pass), options(readBarcode));
+
+		expect(result).toMatchObject({ values: { departureTime: "13:05" } });
+		expect(readBarcode).not.toHaveBeenCalled();
+	});
+
+	it("reads the barcode of an image, with the two airports", async () => {
+		const result = await importFile(
+			png,
+			options(async () => BCBP),
+		);
+
+		expect(result).toEqual({
+			values: expect.objectContaining({
+				designator: "AZ 784",
+				departureDate: "2024-05-12",
+			}),
+			airports: { origin: airports.FCO, destination: airports.NRT },
+		});
+	});
+
+	it("asks for a screenshot for a PDF file", async () => {
+		const readBarcode = vi.fn(async () => BCBP);
+		const pdf = new TextEncoder().encode("%PDF-1.7 ...");
+
+		expect(await importFile(pdf, options(readBarcode))).toEqual({
+			error: "pdf_not_supported",
+		});
+		expect(readBarcode).not.toHaveBeenCalled();
+	});
+
+	it("gives an error for an image with no barcode of a boarding pass", async () => {
+		expect(
+			await importFile(
+				png,
+				options(async () => null),
+			),
+		).toEqual({
+			error: "no_barcode",
+		});
+	});
+
+	it("gives an error for a file that the browser cannot read as an image", async () => {
+		const result = await importFile(
+			new TextEncoder().encode("hello"),
+			options(async () => {
+				throw new DOMException("The source image cannot be decoded.");
+			}),
+		);
+
+		expect(result).toEqual({ error: "not_a_pass" });
+	});
+
+	it("refuses an image that is too large before it reads it", async () => {
+		const readBarcode = vi.fn(async () => BCBP);
+		const large = new Uint8Array(MAX_IMAGE_BYTES + 1);
+
+		expect(await importFile(large, options(readBarcode))).toEqual({
+			error: "file_too_large",
+		});
+		expect(readBarcode).not.toHaveBeenCalled();
 	});
 });
