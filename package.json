@@ -20,6 +20,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"airports:build": "node scripts/airports/build.ts",
+		"logos:add": "node scripts/logos/add.ts",
+		"logos:missing": "node scripts/logos/missing.ts",
 		"deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
 	},
 	"dependencies": {

@@ -97,8 +97,8 @@ A boarding pass holds personal data. These rules prevent the most dangerous defe
 1. **The file of a boarding pass stays in the browser.** The client reads a `.pkpass`
    file, an image or a PDF file. The server receives only the fields that the person
    examined. Do not send the file to the server.
-2. **R2 holds no personal data.** It holds only the logo, the icon and the colours of an
-   airline.
+2. **The application stores no image of a pass.** The logos of the airlines are a static
+   catalogue in `src/client/logos/airlines.json`. Add a logo with `npm run logos:add`.
 3. **Each table of the data has `owner_id`.** Each query gives that condition.
 4. **The public view hides the name and the booking reference** by default.
 
@@ -159,6 +159,8 @@ npm run build                  # the client in dist/client, the Worker in dist/a
 npm run cf-typegen             # writes worker-configuration.d.ts
 npm run db:generate            # writes a migration after a change of schema.ts
 npm run airports:build         # writes src/server/airports/airports.json from the sources
+npm run logos:add -- --codes FR --title Ryanair --simple-icons ryanair  # adds a logo
+npm run logos:missing          # writes the D1 query of the codes with no logo
 ```
 
 `npm run dev` uses a local D1 database in `.wrangler/`. That directory stays out of git.

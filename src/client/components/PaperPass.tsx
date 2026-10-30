@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { CabinClass, FlightView } from "../../shared/flight.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
+import { airlineLogo } from "../lib/airline-logo.ts";
 import { passView } from "../lib/pass.ts";
 
 const CABIN_TEXT: Record<CabinClass, keyof Messages> = {
@@ -73,6 +74,7 @@ export function PaperPass({
 }>) {
 	const text = useText();
 	const pass = passView(flight, locale);
+	const logo = airlineLogo(flight.airlineCode, flight.departureDate);
 	const none = text.passNoValue;
 	const arrives = pass.arrivalTime
 		? `${pass.arrivalTime}${pass.arrivalOffset ? ` ${pass.arrivalOffset}` : ""}`
@@ -97,9 +99,22 @@ export function PaperPass({
 					<div className="absolute -right-3 -bottom-[13px] z-10 size-6 rounded-full bg-background @min-[640px]:-right-[13px] @min-[640px]:-bottom-3" />
 					<div className="h-2.5 rounded-t-[14px] bg-pass-accent @min-[640px]:rounded-tr-none" />
 					<div className="flex flex-1 flex-col gap-4 px-5 pt-4 pb-5 @min-[640px]:px-6">
-						<div className="flex items-baseline justify-between gap-2">
-							<span className="font-semibold text-paper-label text-xs uppercase tracking-[0.18em]">
-								{text.passTitle}
+						<div className="flex min-h-7 items-center justify-between gap-2">
+							<span className="flex items-center gap-2.5">
+								{/* One colour: the logo takes the accent of the pass, as the codes. */}
+								{logo && (
+									<svg
+										viewBox={logo.viewBox}
+										role="img"
+										aria-label={logo.title}
+										className="h-7 w-auto max-w-24 shrink-0 fill-pass-accent"
+									>
+										<path d={logo.path} />
+									</svg>
+								)}
+								<span className="font-semibold text-paper-label text-xs uppercase tracking-[0.18em]">
+									{text.passTitle}
+								</span>
 							</span>
 							<span className="font-bold font-mono text-[15px] text-pass-accent">
 								{pass.designator}
@@ -204,6 +219,11 @@ export function PaperPass({
 					</div>
 				</div>
 			</article>
+			{logo && (
+				<p className="mt-1.5 text-[11px] text-muted-foreground">
+					{text.passLogoTrademark}
+				</p>
+			)}
 		</div>
 	);
 }
