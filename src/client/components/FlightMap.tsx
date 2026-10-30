@@ -121,9 +121,11 @@ export default function FlightMap({
 	const lon = centre?.[0];
 	const lat = centre?.[1];
 	// `jumpTo` and not `easeTo`: an ease at each frame of the replay would stack.
+	// `jumpTo` stops the gestures, thus it waits while the person zooms the map.
 	useEffect(() => {
-		if (lon !== undefined && lat !== undefined) {
-			mapRef.current?.jumpTo({ center: [lon, lat] });
+		const map = mapRef.current;
+		if (lon !== undefined && lat !== undefined && !map?.isMoving()) {
+			map?.jumpTo({ center: [lon, lat] });
 		}
 	}, [lon, lat]);
 
@@ -152,6 +154,7 @@ export default function FlightMap({
 			<div className="h-72 overflow-hidden rounded-[14px] bg-map-land shadow-[0_1px_0_#d8cfbd] md:h-96">
 				{mapStyle && (
 					<MapView
+						ref={mapRef}
 						initialViewState={{
 							bounds: routeBounds(route),
 							fitBoundsOptions: { padding: 56 },
@@ -162,6 +165,20 @@ export default function FlightMap({
 						// The credit is below the map: on a telephone the control of MapLibre covers a third of it.
 						attributionControl={false}
 						style={{ width: "100%", height: "100%" }}
+						// A move of the code has no `originalEvent`: only a drag of the person stops the follow.
+						onDragStart={(event) => {
+							if (event.originalEvent) {
+								dispatchFollow("drag");
+							}
+						}}
+						// A double tap zooms around the tap, not around the centre.
+						onZoomEnd={() => {
+							if (aircraft && following) {
+								mapRef.current?.jumpTo({
+									center: [aircraft.lon, aircraft.lat],
+								});
+							}
+						}}
 					>
 						<Source
 							id="route"
@@ -213,7 +230,15 @@ export default function FlightMap({
 								rotation={aircraft.bearing}
 								rotationAlignment="map"
 							>
-								<Aircraft />
+								<button
+									type="button"
+									aria-label={text.followAircraft}
+									aria-pressed={following}
+									onClick={() => dispatchFollow("tap")}
+									className={`grid size-11 place-items-center rounded-full ${following ? "ring-2 ring-pass-accent" : ""}`}
+								>
+									<Aircraft />
+								</button>
 							</Marker>
 						)}
 					</MapView>
