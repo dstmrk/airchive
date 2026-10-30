@@ -108,13 +108,18 @@ export const en = {
 	mapUnavailable: "The map is not available now.",
 	mapContributors: "contributors",
 
-	importPass: "Import a boarding pass (.pkpass)",
+	importPass: "Import a boarding pass",
+	importHint: "A .pkpass file, or a screenshot or a photo of the barcode.",
 	importReading: "Reading the pass…",
 	importDone: "We filled the form from your pass. Check each value, then save.",
 	importPrivacy:
 		"The file stays on your device. Only the values you save go to airchive.",
 	importFileTooLarge: "This file is too large for a boarding pass.",
-	importNotAPass: "This file is not a .pkpass boarding pass.",
+	importNotAPass: "This file is not a boarding pass or an image.",
+	importPdf:
+		"We cannot read a PDF file. Take a screenshot of the barcode, then import the screenshot.",
+	importNoBarcode:
+		"We found no barcode of a boarding pass in this image. Use a sharp, straight image of the whole barcode.",
 	importNotBoardingPass: "This pass is not a boarding pass of a flight.",
 	importNoFlightData:
 		"We found no flight in this pass. Enter the data by hand.",
