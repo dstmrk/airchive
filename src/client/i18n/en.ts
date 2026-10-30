@@ -91,4 +91,15 @@ export const en = {
 	mapLabel: "Map of the route",
 	mapUnavailable: "The map is not available now.",
 	mapContributors: "contributors",
+
+	importPass: "Import a boarding pass (.pkpass)",
+	importReading: "Reading the pass…",
+	importDone: "We filled the form from your pass. Check each value, then save.",
+	importPrivacy:
+		"The file stays on your device. Only the values you save go to airchive.",
+	importFileTooLarge: "This file is too large for a boarding pass.",
+	importNotAPass: "This file is not a .pkpass boarding pass.",
+	importNotBoardingPass: "This pass is not a boarding pass of a flight.",
+	importNoFlightData:
+		"We found no flight in this pass. Enter the data by hand.",
 };

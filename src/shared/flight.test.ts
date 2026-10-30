@@ -117,6 +117,18 @@ describe("flightInputSchema", () => {
 		).toBe(false);
 	});
 
+	it("accepts the colour of an airline as #rrggbb, in lowercase", () => {
+		expect(parse({ accentColor: "#00205B" }).data?.accentColor).toBe("#00205b");
+		expect(parse({}).data?.accentColor).toBeNull();
+	});
+
+	it.each(["rgb(0,0,0)", "#fff", "blue", "#00205bff"])(
+		"refuses the colour %j",
+		(accentColor) => {
+			expect(parse({ accentColor }).success).toBe(false);
+		},
+	);
+
 	it("refuses a field that the schema does not know", () => {
 		expect(parse({ ownerId: "someone-else" }).success).toBe(false);
 	});

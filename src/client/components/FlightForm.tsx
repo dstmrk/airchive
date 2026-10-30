@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
+import type { Airport } from "../../shared/airport.ts";
 import {
 	CABIN_CLASSES,
 	type FlightIssue,
@@ -39,14 +40,22 @@ const INPUT =
 
 type FlightFormProps = Readonly<{
 	flight?: FlightView;
+	/** The values of an import, over the empty form. A new import gives a new `key` to the form. */
+	initialValues?: Partial<FlightFormValues>;
+	initialAirports?: { origin: Airport | null; destination: Airport | null };
 	onSaved: (flight: FlightView) => void;
 }>;
 
 /** The form for a new flight and for a change of a flight. */
-export function FlightForm({ flight, onSaved }: FlightFormProps) {
+export function FlightForm({
+	flight,
+	initialValues,
+	initialAirports,
+	onSaved,
+}: FlightFormProps) {
 	const text = useText();
 	const [values, setValues] = useState<FlightFormValues>(
-		flight ? formFromFlight(flight) : emptyForm(),
+		flight ? formFromFlight(flight) : { ...emptyForm(), ...initialValues },
 	);
 	const [issues, setIssues] = useState<FieldIssues>({});
 	const [failed, setFailed] = useState(false);
@@ -138,7 +147,9 @@ export function FlightForm({ flight, onSaved }: FlightFormProps) {
 				id="origin"
 				label={text.fieldOrigin}
 				value={values.origin}
-				initialAirport={flight?.originAirport ?? null}
+				initialAirport={
+					flight?.originAirport ?? initialAirports?.origin ?? null
+				}
 				error={issue("origin")}
 				onChange={set("origin")}
 			/>
@@ -146,7 +157,9 @@ export function FlightForm({ flight, onSaved }: FlightFormProps) {
 				id="destination"
 				label={text.fieldDestination}
 				value={values.destination}
-				initialAirport={flight?.destinationAirport ?? null}
+				initialAirport={
+					flight?.destinationAirport ?? initialAirports?.destination ?? null
+				}
 				error={issue("destination")}
 				onChange={set("destination")}
 			/>

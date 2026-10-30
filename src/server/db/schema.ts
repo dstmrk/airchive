@@ -137,6 +137,7 @@ export const flight = sqliteTable(
 		}),
 		passengerName: text("passenger_name"),
 		bookingReference: text("booking_reference"),
+		accentColor: text("accent_color"),
 		createdAt: timestamp("created_at")
 			.notNull()
 			.$defaultFn(() => new Date()),

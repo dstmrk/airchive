@@ -1,4 +1,8 @@
 import type { CabinClass, FlightView } from "../../shared/flight.ts";
+import { usableAccent } from "./color.ts";
+
+/** The paper of the pass: `--color-paper` of `app.css`. The contrast of the accent is measured on it. */
+export const PAPER = "#fbf7ee";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,6 +59,8 @@ export type PassView = {
 	cabinClass: CabinClass | null;
 	passengerName: string | null;
 	bookingReference: string | null;
+	/** The colour of the airline, or null for the default accent of the theme. */
+	accent: string | null;
 };
 
 /**
@@ -85,5 +91,6 @@ export function passView(flight: FlightView, locale: string): PassView {
 		cabinClass: flight.cabinClass,
 		passengerName: flight.passengerName?.toLocaleUpperCase(locale) ?? null,
 		bookingReference: flight.bookingReference,
+		accent: usableAccent(flight.accentColor, PAPER),
 	};
 }

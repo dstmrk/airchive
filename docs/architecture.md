@@ -133,6 +133,47 @@ date and no time, thus the date of a flight stays correct with no time.
 The schema keeps no field for the real times or a real track yet. The slice that uses
 them adds them.
 
+### 3.1.2 The import of a `.pkpass` file
+
+The page of a new flight has a button for a `.pkpass` file. The browser reads the file,
+and the file does not go to the server: the import sends no request with the file.
+
+`src/client/lib/pkpass/to-form.ts` finds the values in `pass.json`, from three sources,
+the most reliable first:
+
+1. The semantic tags (`semantics`), since iOS 12. Their dates are instants; the time
+   zone of each airport gives the local times of the form.
+2. The IATA BCBP barcode (`barcodes[].message`, or the old `barcode`).
+   `src/client/lib/bcbp.ts` reads the 60 characters of the first leg. The barcode gives
+   the day of the year and no year: the date is the most recent one on or before the
+   `relevantDate` of the pass, or today.
+3. The free fields of the pass, by key or by label. The first two primary fields give
+   the airports.
+
+`relevantDate` gives only a day: it is often the time of the boarding, not of the
+departure. The `backgroundColor` of the pass becomes the accent of the paper boarding
+pass when its contrast on the paper is 3:1 or more; a pale colour keeps the default
+accent.
+
+The values fill the form, and the person examines them before the save. The schema of
+the form examines each value, as for a manual input.
+
+A `.pkpass` file is not trusted. `src/client/lib/pkpass/extract.ts` applies these limits:
+
+| Risk | Limit |
+|---|---|
+| A large file | 5 MB, before the file is opened. |
+| A zip bomb | Only `pass.json` is decompressed. The bytes are counted during the decompression, and the reading stops at 1 MB. The size that the archive declares is not used. The archive goes to the decoder in chunks of 1 KB, because DEFLATE can expand 1 KB to 1 MB in one step. |
+| Many entries | 200 entries. |
+| A false name | Only the exact name `pass.json`. A path such as `evil/pass.json` is not the pass. |
+| Hostile values | Each value must have the expected type and a length limit. React writes text, never HTML. |
+
+The import does not verify the signature of the pass. The form and its schema examine
+the data, and an archive of keepsakes needs no proof of origin.
+
+The logo and the icon of the airline are not imported yet. Their upload to R2 is a
+separate slice, with its own limits for images.
+
 ### 3.2 The private data
 
 A boarding pass holds the name, the booking reference and sometimes the number of a

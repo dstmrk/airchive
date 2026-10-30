@@ -71,6 +71,14 @@ export const flightInputSchema = z
 		cabinClass: optional(z.enum(CABIN_CLASSES)),
 		passengerName: optional(z.string().trim().max(100)),
 		bookingReference: optional(upper(/^[A-Z0-9]{5,8}$/)),
+		// The background colour of the `.pkpass` file of the airline, if any.
+		accentColor: optional(
+			z
+				.string()
+				.trim()
+				.toLowerCase()
+				.regex(/^#[0-9a-f]{6}$/),
+		),
 	})
 	.superRefine((flight, ctx) => {
 		if (flight.origin === flight.destination) {
