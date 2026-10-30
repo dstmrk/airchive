@@ -105,6 +105,7 @@ export const en = {
 	speed1x: "Real time",
 
 	mapLabel: "Map of the route",
+	followAircraft: "Keep the aircraft at the centre of the map",
 	mapUnavailable: "The map is not available now.",
 	mapContributors: "contributors",
 

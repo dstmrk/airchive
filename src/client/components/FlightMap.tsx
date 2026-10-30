@@ -1,12 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { type StyleSpecification, setWorkerUrl } from "maplibre-gl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 // The bundle serves the worker of MapLibre, not a CDN.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
-import { Layer, Map as MapView, Marker, Source } from "react-map-gl/maplibre";
+import {
+	Layer,
+	type MapRef,
+	Map as MapView,
+	Marker,
+	Source,
+} from "react-map-gl/maplibre";
 import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
+import { follow } from "../lib/follow.ts";
 import { greatCircle, type LonLat, routeBounds } from "../lib/great-circle.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
 import { flownRoute, position } from "../lib/replay.ts";
@@ -80,7 +87,8 @@ function Aircraft() {
  * this component lazily, thus the archive does not load MapLibre.
  *
  * During the replay, `progress` (from 0 to 1) puts the aircraft on the route,
- * and a solid line shows the part that it flew.
+ * and a solid line shows the part that it flew. A tap of the aircraft keeps it
+ * at the centre. A zoom keeps it there too, and a drag of the map stops it.
  */
 export default function FlightMap({
 	origin,
@@ -92,6 +100,8 @@ export default function FlightMap({
 	progress?: number | null;
 }>) {
 	const text = useText();
+	const mapRef = useRef<MapRef>(null);
+	const [following, dispatchFollow] = useReducer(follow, false);
 	const { data: mapStyle, isError } = usePaperStyle();
 	const from: LonLat = [origin.lon, origin.lat];
 	const to: LonLat = [destination.lon, destination.lat];
@@ -103,9 +113,34 @@ export default function FlightMap({
 	const aircraft = progress === null ? null : position(route, progress);
 	const flown = progress === null ? [] : flownRoute(route, progress);
 	const end = route.at(-1) ?? to;
+	const centre = aircraft && following ? [aircraft.lon, aircraft.lat] : null;
 	const accent = getComputedStyle(document.documentElement)
 		.getPropertyValue("--color-pass-accent")
 		.trim();
+
+	const lon = centre?.[0];
+	const lat = centre?.[1];
+	// `jumpTo` and not `easeTo`: an ease at each frame of the replay would stack.
+	useEffect(() => {
+		if (lon !== undefined && lat !== undefined) {
+			mapRef.current?.jumpTo({ center: [lon, lat] });
+		}
+	}, [lon, lat]);
+
+	// The replay without an aircraft (it did not start) has nothing to follow.
+	useEffect(() => {
+		if (progress === null) {
+			dispatchFollow("reset");
+		}
+	}, [progress]);
+
+	// A zoom around the centre keeps the aircraft where it is.
+	useEffect(() => {
+		const map = mapRef.current?.getMap();
+		const options = following ? { around: "center" as const } : true;
+		map?.scrollZoom.enable(options);
+		map?.touchZoomRotate.enable(options);
+	}, [following]);
 
 	if (isError) {
 		return (
