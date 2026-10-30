@@ -508,8 +508,25 @@ the aircraft.
 
 The button "Relive your flight" is on the stub of the paper pass. At the gate, the agent
 tears the stub at the boarding, thus the stub tears along the perforation in 700 ms.
-Then the page goes to the map and the aircraft departs. The stub is on the pass again
-after the landing. Issue #25 adds a tear with a finger.
+Then the map and the controls fill the screen, and the aircraft departs. The stub is on
+the pass again after the landing. Issue #25 adds a tear with a finger.
+
+The full screen is the **cabin**. `src/client/lib/cabin.ts` holds its logic, with tests:
+
+- The map moves from its place on the page to the full screen with the View Transitions
+  API. A browser with no API or `prefers-reduced-motion` gives the cabin with no motion.
+- One element holds the map in the two places. Thus React keeps the map of MapLibre, and
+  the tiles do not load again.
+- The cabin is not the Fullscreen API: Safari on iPhone does not give that API for a
+  `div`. The cabin uses `100dvh`, thus the bar of the browser does not cover it.
+- A column holds a bar with the route and a button "close", the map, and the controls.
+  The controls do not cover the map, thus the aircraft stays visible on a telephone.
+- In the cabin, one finger moves the map: the page under it does not scroll.
+- The cabin stays open after the landing. "Fly again" starts at the origin with no tear,
+  because the stub is under the cabin.
+- The URL holds `?replay=true` while the cabin is open. Thus the button "back" of the
+  browser closes it, as the button "close" and the key Escape do. A reload gives the pass:
+  the replay never starts alone.
 
 `src/client/lib/replay.ts` holds the logic, with tests:
 
@@ -518,7 +535,8 @@ after the landing. Issue #25 adds a tear with a finger.
   a linear step of `t` is a constant speed. The aircraft does not use it directly: the
   profile of the flight gives `t` (refer to the next list).
 - `replay(state, event)` gives the states: `idle`, `boarding`, `playing`, `paused` and
-  `landed`. The replay never starts alone, thus `prefers-reduced-motion` needs no other
+  `landed`. The cabin is open in `playing`, `paused` and `landed`. The event `stop` gives
+  `idle` again. The replay never starts alone, thus `prefers-reduced-motion` needs no other
   rule. With that preference, the stub does not move: it goes away.
 - The speeds are `15 s`, `30 s` (the default), `1 min`, `5 min`, `4×` and real time. A
   short replay has a fixed length for each flight. A long replay is a multiple of the
@@ -544,7 +562,7 @@ gives no real data:
 - The aircraft on the map moves with that speed: it is slow near the airports. The
   timeline and the clocks stay linear in time.
 
-Under the map, a panel shows the distance to go, the time to go, the ETA in the time
+Under the map, in the cabin, a panel shows the distance to go, the time to go, the ETA in the time
 zone of the destination, the ground speed and the altitude. The units are metric: km,
 km/h and m. The ETA needs a departure time. A text tells the person that the speed and
 the altitude are simulated.

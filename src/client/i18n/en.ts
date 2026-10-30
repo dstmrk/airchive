@@ -91,6 +91,7 @@ export const en = {
 
 	relive: "Relive your flight",
 	replayLabel: "Replay of the flight",
+	replayClose: "Close the replay",
 	replayPlay: "Play",
 	replayPause: "Pause",
 	replayAgain: "Fly again",

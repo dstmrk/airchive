@@ -90,15 +90,20 @@ function Aircraft() {
  * the aircraft on the route, and a solid line shows the part that it flew. The
  * map keeps the aircraft at the centre, also during a zoom. A drag of the map
  * stops it, and a tap of the aircraft starts and stops it.
+ *
+ * With `cabin`, the map fills the height of its parent, and one finger moves
+ * it: the page under the cabin does not scroll.
  */
 export default function FlightMap({
 	origin,
 	destination,
 	progress = null,
+	cabin = false,
 }: Readonly<{
 	origin: Airport;
 	destination: Airport;
 	progress?: number | null;
+	cabin?: boolean;
 }>) {
 	const text = useText();
 	const mapRef = useRef<MapRef>(null);
@@ -146,14 +151,40 @@ export default function FlightMap({
 		map?.touchZoomRotate.enable(options);
 	}, [tracking]);
 
+	// `react-map-gl` reads `cooperativeGestures` only at the start of the map.
+	// The size changes with the cabin, thus the route goes in the map again.
+	// With the follow, the next frame of the replay puts the aircraft at the centre.
+	useEffect(() => {
+		const map = mapRef.current?.getMap();
+		if (!map) {
+			return;
+		}
+		if (cabin) {
+			map.cooperativeGestures.disable();
+		} else {
+			map.cooperativeGestures.enable();
+		}
+		map.resize();
+		map.fitBounds(routeBounds(route), { padding: 56, animate: false });
+	}, [cabin, route]);
+
 	if (isError) {
 		return (
 			<p className="text-muted-foreground text-sm">{text.mapUnavailable}</p>
 		);
 	}
 	return (
-		<section aria-label={text.mapLabel} className="flex flex-col gap-1.5">
-			<div className="h-72 overflow-hidden rounded-[14px] bg-map-land shadow-[0_1px_0_#d8cfbd] md:h-96">
+		<section
+			aria-label={text.mapLabel}
+			className={`flex flex-col gap-1.5 ${cabin ? "min-h-0 flex-1" : ""}`}
+		>
+			<div
+				className={`overflow-hidden bg-map-land ${
+					cabin
+						? "min-h-0 flex-1"
+						: "h-72 rounded-[14px] shadow-[0_1px_0_#d8cfbd] md:h-96"
+				}`}
+			>
 				{mapStyle && (
 					<MapView
 						ref={mapRef}
@@ -162,7 +193,7 @@ export default function FlightMap({
 							fitBoundsOptions: { padding: 56 },
 						}}
 						mapStyle={mapStyle}
-						cooperativeGestures
+						cooperativeGestures={!cabin}
 						dragRotate={false}
 						// The credit is below the map: on a telephone the control of MapLibre covers a third of it.
 						attributionControl={false}
@@ -246,7 +277,7 @@ export default function FlightMap({
 					</MapView>
 				)}
 			</div>
-			<p className="text-[11px] text-muted-foreground">
+			<p className={`text-[11px] text-muted-foreground ${cabin ? "px-4" : ""}`}>
 				©{" "}
 				<a
 					href="https://openfreemap.org"

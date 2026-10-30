@@ -85,8 +85,9 @@ export function replayMs(id: SpeedId, flightMs: number): number {
 /**
  * - `idle`: the stub is on the pass, and the aircraft is at the origin.
  * - `boarding`: the stub tears.
- * - `playing` and `paused`: the stub is off.
+ * - `playing` and `paused`: the stub is off. The map fills the screen.
  * - `landed`: the stub is on the pass again, and the aircraft is at the destination.
+ *   The map still fills the screen: a stop goes back to the pass.
  */
 export type ReplayState = {
 	phase: "idle" | "boarding" | "playing" | "paused" | "landed";
@@ -98,7 +99,8 @@ export type ReplayEvent =
 	| { type: "boarded" }
 	| { type: "pause" }
 	| { type: "tick"; ms: number; replayMs: number }
-	| { type: "seek"; t: number };
+	| { type: "seek"; t: number }
+	| { type: "stop" };
 
 /** The replay never starts alone, thus `prefers-reduced-motion` needs no other rule. */
 export const initialReplay: ReplayState = { phase: "idle", t: 0 };
@@ -108,6 +110,10 @@ export function replay(state: ReplayState, event: ReplayEvent): ReplayState {
 		case "play":
 			if (state.phase === "paused" && state.t < 1) {
 				return { ...state, phase: "playing" };
+			}
+			// The stub is under the cabin: a second tear has no audience.
+			if (state.phase === "landed" || state.phase === "paused") {
+				return { phase: "playing", t: 0 };
 			}
 			return state.phase === "boarding" || state.phase === "playing"
 				? state
@@ -129,10 +135,17 @@ export function replay(state: ReplayState, event: ReplayEvent): ReplayState {
 		}
 		case "seek":
 			return { phase: "paused", t: Math.min(1, Math.max(0, event.t)) };
+		case "stop":
+			return state.phase === "idle" ? state : initialReplay;
 	}
 }
 
 /** The stub is off the pass from the tear to the landing. */
 export function isTorn({ phase }: ReplayState): boolean {
 	return phase === "boarding" || phase === "playing" || phase === "paused";
+}
+
+/** The map and the controls fill the screen from the end of the tear to a stop. */
+export function inCabin({ phase }: ReplayState): boolean {
+	return phase === "playing" || phase === "paused" || phase === "landed";
 }

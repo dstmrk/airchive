@@ -93,6 +93,7 @@ export const it: Messages = {
 
 	relive: "Rivivi il tuo volo",
 	replayLabel: "Replay del volo",
+	replayClose: "Chiudi il replay",
 	replayPlay: "Avvia",
 	replayPause: "Pausa",
 	replayAgain: "Vola di nuovo",

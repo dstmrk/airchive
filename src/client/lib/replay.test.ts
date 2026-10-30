@@ -3,6 +3,7 @@ import { greatCircle, type LonLat } from "./great-circle.ts";
 import {
 	DEFAULT_SPEED,
 	flownRoute,
+	inCabin,
 	initialReplay,
 	isTorn,
 	position,
@@ -155,10 +156,23 @@ describe("replay", () => {
 		expect(replay(paused, { type: "play" })).toEqual(at("playing", 0.4));
 	});
 
-	it("starts again from the origin after the landing", () => {
-		expect(replay(at("landed", 1), { type: "play" })).toEqual(
-			at("boarding", 0),
-		);
+	it("flies again from the origin after the landing, with no tear", () => {
+		expect(replay(at("landed", 1), { type: "play" })).toEqual(at("playing", 0));
+	});
+
+	it("flies again from the origin when the timeline is at the end", () => {
+		expect(replay(at("paused", 1), { type: "play" })).toEqual(at("playing", 0));
+	});
+
+	it.each(["boarding", "playing", "paused", "landed"] as const)(
+		"goes back to the pass from %s on a stop",
+		(phase) => {
+			expect(replay(at(phase, 0.6), { type: "stop" })).toEqual(initialReplay);
+		},
+	);
+
+	it("keeps the state on a stop before the replay", () => {
+		expect(replay(initialReplay, { type: "stop" })).toBe(initialReplay);
 	});
 
 	it("pauses at the point of the timeline", () => {
@@ -186,5 +200,17 @@ describe("isTorn", () => {
 		["landed", false],
 	] as const)("gives %s: %s", (phase, torn) => {
 		expect(isTorn({ phase, t: 0.5 })).toBe(torn);
+	});
+});
+
+describe("inCabin", () => {
+	it.each([
+		["idle", false],
+		["boarding", false],
+		["playing", true],
+		["paused", true],
+		["landed", true],
+	] as const)("gives %s: %s", (phase, cabin) => {
+		expect(inCabin({ phase, t: 0.5 })).toBe(cabin);
 	});
 });
