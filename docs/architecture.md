@@ -506,10 +506,24 @@ These rules apply:
 The route is the **great circle** between the two airports. It is not the real track of
 the aircraft.
 
-The button "Relive your flight" is on the stub of the paper pass. At the gate, the agent
-tears the stub at the boarding, thus the stub tears along the perforation in 700 ms.
-Then the map and the controls fill the screen, and the aircraft departs. The stub is on
-the pass again after the landing. Issue #25 adds a tear with a finger.
+The tear of the stub starts the replay. At the gate, the agent tears the stub at the
+boarding. Then the map and the controls fill the screen, and the aircraft departs. The
+stub is on the pass again after the landing. `src/client/lib/tear.ts` holds the motion,
+with tests:
+
+- The stub turns about one end of the perforation while the tear opens, then it falls
+  with gravity and fades. The motion uses the Web Animations API, with no dependency.
+- The stub covers a strip of 3 px of the body. The line of the tear is in that strip,
+  thus the torn edges of the body and of the stub fit.
+- The button on the stub is the handle of the tear. It shows "Tear to relive your
+  flight" and an arrow in the direction of the pull.
+- A pull of the handle moves the stub along one axis: down on a telephone, to the right
+  from 640 px. A pull of 72 px tears the stub. A shorter pull puts the stub back.
+- Only the handle has `touch-action: none`. The page scrolls from the rest of the stub.
+- A tap, the keyboard and a screen reader give the full tear in 700 ms.
+- With `prefers-reduced-motion`, the handle is a button only. The tear has no motion.
+- The pass and the falling stub are over the map. The root clips the horizontal
+  overflow, thus the stub does not make the page scroll sideways.
 
 The full screen is the **cabin**. `src/client/lib/cabin.ts` holds its logic, with tests:
 

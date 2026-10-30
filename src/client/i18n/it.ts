@@ -91,7 +91,7 @@ export const it: Messages = {
 	passLogoTrademark:
 		"Il logo della compagnia aerea è un marchio del suo proprietario.",
 
-	relive: "Rivivi il tuo volo",
+	tearToRelive: "Strappa per rivivere il volo",
 	replayLabel: "Replay del volo",
 	replayClose: "Chiudi il replay",
 	replayPlay: "Avvia",
