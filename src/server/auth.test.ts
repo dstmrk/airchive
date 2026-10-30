@@ -195,3 +195,56 @@ describe("the auth with no secret", () => {
 		error.mockRestore();
 	});
 });
+
+describe("the auth on a database with no tables", () => {
+	it("writes the cause of the error to the log, with no parameter of the query", async () => {
+		const empty = await createTestD1({ migrate: false });
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			const response = await requestLinkFor(
+				testEnv(empty.db),
+				"person@example.com",
+				"203.0.113.250",
+			);
+
+			expect(response.status).toBe(500);
+			const lines = error.mock.calls.map((call) => call.map(String).join(" "));
+			const ours = lines.find((line) => line.includes("no such table"));
+			expect(ours).toContain("no such table: rate_limit");
+			expect(ours).not.toContain("203.0.113.250");
+			expect(await response.json()).toEqual({ error: "internal" });
+		} finally {
+			error.mockRestore();
+			await empty.dispose();
+		}
+	});
+});
+
+describe("an error inside an endpoint of Better Auth", () => {
+	it("goes to the log as the cause, with no parameter of the query", async () => {
+		// Only the rate limit works: the endpoint then fails on the table verification.
+		const partial = await createTestD1({ migrate: false });
+		await partial.db
+			.prepare(
+				"CREATE TABLE rate_limit (id text PRIMARY KEY, key text NOT NULL, count integer NOT NULL, last_request integer NOT NULL)",
+			)
+			.run();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			const response = await requestLinkFor(
+				testEnv(partial.db),
+				"person@example.com",
+				"203.0.113.251",
+			);
+
+			expect(response.status).toBeGreaterThanOrEqual(500);
+			const lines = error.mock.calls.map((call) => call.map(String).join(" "));
+			const ours = lines.find((line) => line.startsWith("Auth error:"));
+			expect(ours).toContain("no such table: verification");
+			expect(ours).not.toContain("person@example.com");
+		} finally {
+			error.mockRestore();
+			await partial.dispose();
+		}
+	});
+});
