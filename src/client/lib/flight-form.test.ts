@@ -70,6 +70,7 @@ describe("formFromFlight", () => {
 			cabinClass: null,
 			passengerName: null,
 			bookingReference: null,
+			accentColor: "#00205b",
 			originAirport: null,
 			destinationAirport: null,
 		};
@@ -79,10 +80,12 @@ describe("formFromFlight", () => {
 		expect(form.designator).toBe("AZ 784");
 		expect(form.airlineName).toBe("ITA Airways");
 		expect(form.departureTime).toBe("");
+		expect(form.accentColor).toBe("#00205b");
 		expect(toPayload(form)).toEqual({
 			flight: expect.objectContaining({
 				airlineCode: "AZ",
 				departureTime: null,
+				accentColor: "#00205b",
 			}),
 		});
 	});

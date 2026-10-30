@@ -15,6 +15,13 @@
       "when": 1793344900166,
       "tag": "0001_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793349581957,
+      "tag": "0002_flight_accent_color",
+      "breakpoints": true
     }
   ]
 }

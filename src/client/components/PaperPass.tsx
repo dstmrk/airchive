@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { CabinClass, FlightView } from "../../shared/flight.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
@@ -73,6 +73,12 @@ export function PaperPass({
 		<div className="@container">
 			<article
 				aria-label={text.passTitle}
+				// The colour of the airline replaces the default accent of the theme.
+				style={
+					pass.accent
+						? ({ "--color-pass-accent": pass.accent } as CSSProperties)
+						: undefined
+				}
 				className="flex flex-col overflow-hidden rounded-[14px] bg-paper text-foreground shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:flex-row"
 			>
 				<div className="flex min-w-0 flex-1 flex-col">

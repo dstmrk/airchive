@@ -1,0 +1,1 @@
+ALTER TABLE `flight` ADD `accent_color` text;

@@ -17,6 +17,7 @@ const flight: FlightView = {
 	cabinClass: "economy",
 	passengerName: "Alex Traveler",
 	bookingReference: "K7Q2XD",
+	accentColor: null,
 	originAirport: {
 		iata: "FCO",
 		name: "Fiumicino",
@@ -88,7 +89,20 @@ describe("passView", () => {
 			cabinClass: "economy",
 			passengerName: "ALEX TRAVELER",
 			bookingReference: "K7Q2XD",
+			accent: null,
 		});
+	});
+
+	it("uses the colour of the airline as the accent when it is dark enough", () => {
+		expect(passView({ ...flight, accentColor: "#00205b" }, "en").accent).toBe(
+			"#00205b",
+		);
+	});
+
+	it("keeps the default accent for a pale colour of the airline", () => {
+		expect(
+			passView({ ...flight, accentColor: "#ffffff" }, "en").accent,
+		).toBeNull();
 	});
 
 	it("gives null for each value that the flight does not have", () => {

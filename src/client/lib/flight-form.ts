@@ -23,6 +23,8 @@ export type FlightFormValues = {
 	cabinClass: string;
 	passengerName: string;
 	bookingReference: string;
+	/** No input shows it: an import of a pass gives it, and an edit keeps it. */
+	accentColor: string;
 };
 
 export type FormField = keyof FlightFormValues;
@@ -59,6 +61,7 @@ export function emptyForm(): FlightFormValues {
 		cabinClass: "",
 		passengerName: "",
 		bookingReference: "",
+		accentColor: "",
 	};
 }
 
@@ -76,6 +79,7 @@ export function formFromFlight(flight: FlightView): FlightFormValues {
 		cabinClass: flight.cabinClass ?? "",
 		passengerName: flight.passengerName ?? "",
 		bookingReference: flight.bookingReference ?? "",
+		accentColor: flight.accentColor ?? "",
 	};
 }
 
