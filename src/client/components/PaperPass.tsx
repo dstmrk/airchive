@@ -118,25 +118,22 @@ export function PaperPass({
 								{pass.designator}
 							</span>
 						</div>
-						<div className="flex items-end gap-3 @min-[640px]:gap-5">
-							<div className="flex min-w-0 flex-col">
-								<span className="font-bold font-mono text-[40px] leading-none @min-[640px]:text-5xl">
-									{pass.origin.code}
-								</span>
-								<span className="mt-1 truncate text-paper-label text-sm">
-									{pass.origin.city}
-								</span>
-							</div>
-							<Arrow className="mb-6 h-6 w-12 shrink-0 @min-[640px]:w-14" />
+						{/* The codes share a row, thus the arrow is at the centre of the codes and not of the cities. */}
+						<div className="grid grid-cols-[minmax(0,auto)_auto_minmax(0,auto)] items-center justify-start gap-x-3 gap-y-1 @min-[640px]:gap-x-5">
+							<span className="col-start-1 row-start-1 font-bold font-mono text-[40px] leading-none @min-[640px]:text-5xl">
+								{pass.origin.code}
+							</span>
+							<span className="col-start-1 row-start-2 truncate text-paper-label text-sm">
+								{pass.origin.city}
+							</span>
+							<Arrow className="col-start-2 row-start-1 h-6 w-12 @min-[640px]:w-14" />
 							<span className="sr-only">{text.passTo}</span>
-							<div className="flex min-w-0 flex-col">
-								<span className="font-bold font-mono text-[40px] leading-none @min-[640px]:text-5xl">
-									{pass.destination.code}
-								</span>
-								<span className="mt-1 truncate text-paper-label text-sm">
-									{pass.destination.city}
-								</span>
-							</div>
+							<span className="col-start-3 row-start-1 font-bold font-mono text-[40px] leading-none @min-[640px]:text-5xl">
+								{pass.destination.code}
+							</span>
+							<span className="col-start-3 row-start-2 truncate text-paper-label text-sm">
+								{pass.destination.city}
+							</span>
 						</div>
 						<div className="mt-auto grid grid-cols-2 gap-x-4 gap-y-2.5 @min-[640px]:grid-cols-4">
 							<Field label={text.passPassenger}>
