@@ -2,11 +2,13 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
+import type { FlightMoment } from "../lib/flight-profile.ts";
 import {
 	clockAt,
 	durationText,
 	type FlightTiming,
 } from "../lib/flight-time.ts";
+import { formatUnit } from "../lib/format.ts";
 import {
 	DEFAULT_SPEED,
 	initialReplay,
@@ -133,9 +135,65 @@ type ReplayControlsProps = Readonly<{
 	speed: SpeedId;
 	onSpeed: (id: SpeedId) => void;
 	timing: FlightTiming;
+	moment: FlightMoment;
 	origin: Airport;
 	destination: Airport;
 }>;
+
+/** The data of the flight, as on the screen of a cabin. */
+function InflightPanel({
+	moment,
+	remainingMs,
+	arrival,
+	destination,
+}: Readonly<{
+	moment: FlightMoment;
+	remainingMs: number;
+	arrival: number | null;
+	destination: Airport;
+}>) {
+	const text = useText();
+	const locale = document.documentElement.lang;
+	const item = (label: string, value: string, detail?: string) => (
+		<div className="flex flex-col">
+			<dt className="text-muted-foreground text-xs">{label}</dt>
+			<dd className="font-medium font-mono text-[15px]">
+				{value}
+				{detail && (
+					<span className="ml-1.5 font-normal text-muted-foreground text-xs">
+						{detail}
+					</span>
+				)}
+			</dd>
+		</div>
+	);
+	return (
+		<dl
+			aria-label={text.inflightLabel}
+			className="grid @min-[640px]:grid-cols-4 grid-cols-2 gap-x-4 gap-y-2"
+		>
+			{item(
+				text.inflightDistance,
+				formatUnit(moment.remainingKm, "kilometer", locale),
+			)}
+			{item(
+				text.inflightTime,
+				durationText(remainingMs),
+				arrival === null
+					? undefined
+					: `${text.inflightEta} ${clockAt(arrival, destination.tz)}`,
+			)}
+			{item(
+				text.inflightSpeed,
+				formatUnit(moment.speedKmh, "kilometer-per-hour", locale),
+			)}
+			{item(
+				text.inflightAltitude,
+				formatUnit(moment.altitudeM, "meter", locale),
+			)}
+		</dl>
+	);
+}
 
 /** The controls under the map: play, the timeline, the clocks and the speeds. */
 export function ReplayControls({
@@ -144,6 +202,7 @@ export function ReplayControls({
 	speed,
 	onSpeed,
 	timing,
+	moment,
 	origin,
 	destination,
 }: ReplayControlsProps) {
@@ -204,6 +263,16 @@ export function ReplayControls({
 					className="h-11 min-w-0 flex-1 accent-pass-accent"
 				/>
 			</div>
+			<InflightPanel
+				moment={moment}
+				remainingMs={timing.durationMs - elapsed}
+				arrival={
+					timing.departure === null
+						? null
+						: timing.departure + timing.durationMs
+				}
+				destination={destination}
+			/>
 			<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[13px]">
 				{now === null ? (
 					<span>{progress}</span>
@@ -214,11 +283,11 @@ export function ReplayControls({
 						{destination.iata} <b>{clockAt(now, destination.tz)}</b>
 					</span>
 				)}
-				{timing.estimated && (
-					<span className="font-sans text-muted-foreground text-xs">
-						{text.replayEstimated} {durationText(timing.durationMs)}
-					</span>
-				)}
+				<span className="font-sans text-muted-foreground text-xs">
+					{timing.estimated &&
+						`${text.replayEstimated} ${durationText(timing.durationMs)} · `}
+					{text.inflightSimulated}
+				</span>
 			</div>
 			<fieldset className="flex flex-wrap items-center gap-1">
 				<legend className="sr-only">{text.replaySpeed}</legend>

@@ -106,6 +106,13 @@ export const it: Messages = {
 	speed5min: "5 min",
 	speed4x: "4×",
 	speed1x: "Tempo reale",
+	inflightLabel: "Dati del volo",
+	inflightDistance: "Distanza residua",
+	inflightTime: "Tempo residuo",
+	inflightEta: "ETA",
+	inflightSpeed: "Velocità al suolo",
+	inflightAltitude: "Altitudine",
+	inflightSimulated: "Velocità e altitudine simulate",
 
 	mapLabel: "Mappa della rotta",
 	followAircraft: "Tieni l'aereo al centro della mappa",

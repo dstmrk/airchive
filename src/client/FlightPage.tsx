@@ -6,7 +6,9 @@ import { PaperPass } from "./components/PaperPass.tsx";
 import { ReplayControls, useReplay } from "./components/Replay.tsx";
 import { RequireSession } from "./components/RequireSession.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
+import { flightProfile, momentAt } from "./lib/flight-profile.ts";
 import { flightTiming } from "./lib/flight-time.ts";
+import { distanceKm } from "./lib/great-circle.ts";
 import { useFlight } from "./lib/queries.ts";
 import { isTorn } from "./lib/replay.ts";
 
@@ -78,6 +80,17 @@ function FlightReplay({
 			}),
 		[flight, origin, destination],
 	);
+	const profile = useMemo(
+		() =>
+			flightProfile(
+				distanceKm(
+					[origin.lon, origin.lat],
+					[destination.lon, destination.lat],
+				),
+				timing.durationMs,
+			),
+		[origin, destination, timing],
+	);
 	const { state, dispatch, speed, setSpeed } = useReplay(timing, () =>
 		mapRef.current?.scrollIntoView({
 			behavior: globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")
@@ -88,6 +101,7 @@ function FlightReplay({
 		}),
 	);
 	const started = state.phase !== "idle";
+	const moment = momentAt(profile, state.t);
 
 	return (
 		<>
@@ -104,7 +118,7 @@ function FlightReplay({
 					<FlightMap
 						origin={origin}
 						destination={destination}
-						progress={started ? state.t : null}
+						progress={started ? moment.fraction : null}
 					/>
 				</Suspense>
 				{started && (
@@ -114,6 +128,7 @@ function FlightReplay({
 						speed={speed}
 						onSpeed={setSpeed}
 						timing={timing}
+						moment={moment}
 						origin={origin}
 						destination={destination}
 					/>

@@ -13,7 +13,7 @@ import {
 } from "react-map-gl/maplibre";
 import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
-import { follow } from "../lib/follow.ts";
+import { follow, INITIAL_FOLLOW } from "../lib/follow.ts";
 import { greatCircle, type LonLat, routeBounds } from "../lib/great-circle.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
 import { flownRoute, position } from "../lib/replay.ts";
@@ -86,9 +86,10 @@ function Aircraft() {
  * Paragraph 5.5 of `docs/architecture.md` gives the decisions. The page loads
  * this component lazily, thus the archive does not load MapLibre.
  *
- * During the replay, `progress` (from 0 to 1) puts the aircraft on the route,
- * and a solid line shows the part that it flew. A tap of the aircraft keeps it
- * at the centre. A zoom keeps it there too, and a drag of the map stops it.
+ * During the replay, `progress` (the part of the distance, from 0 to 1) puts
+ * the aircraft on the route, and a solid line shows the part that it flew. The
+ * map keeps the aircraft at the centre, also during a zoom. A drag of the map
+ * stops it, and a tap of the aircraft starts and stops it.
  */
 export default function FlightMap({
 	origin,
@@ -101,7 +102,7 @@ export default function FlightMap({
 }>) {
 	const text = useText();
 	const mapRef = useRef<MapRef>(null);
-	const [following, dispatchFollow] = useReducer(follow, false);
+	const [following, dispatchFollow] = useReducer(follow, INITIAL_FOLLOW);
 	const { data: mapStyle, isError } = usePaperStyle();
 	const from: LonLat = [origin.lon, origin.lat];
 	const to: LonLat = [destination.lon, destination.lat];
@@ -113,7 +114,8 @@ export default function FlightMap({
 	const aircraft = progress === null ? null : position(route, progress);
 	const flown = progress === null ? [] : flownRoute(route, progress);
 	const end = route.at(-1) ?? to;
-	const centre = aircraft && following ? [aircraft.lon, aircraft.lat] : null;
+	const tracking = aircraft !== null && following;
+	const centre = tracking ? [aircraft.lon, aircraft.lat] : null;
 	const accent = getComputedStyle(document.documentElement)
 		.getPropertyValue("--color-pass-accent")
 		.trim();
@@ -129,7 +131,7 @@ export default function FlightMap({
 		}
 	}, [lon, lat]);
 
-	// The replay without an aircraft (it did not start) has nothing to follow.
+	// The replay without an aircraft (it did not start) starts again with the follow on.
 	useEffect(() => {
 		if (progress === null) {
 			dispatchFollow("reset");
@@ -139,10 +141,10 @@ export default function FlightMap({
 	// A zoom around the centre keeps the aircraft where it is.
 	useEffect(() => {
 		const map = mapRef.current?.getMap();
-		const options = following ? { around: "center" as const } : true;
+		const options = tracking ? { around: "center" as const } : true;
 		map?.scrollZoom.enable(options);
 		map?.touchZoomRotate.enable(options);
-	}, [following]);
+	}, [tracking]);
 
 	if (isError) {
 		return (
@@ -173,7 +175,7 @@ export default function FlightMap({
 						}}
 						// A double tap zooms around the tap, not around the centre.
 						onZoomEnd={() => {
-							if (aircraft && following) {
+							if (tracking) {
 								mapRef.current?.jumpTo({
 									center: [aircraft.lon, aircraft.lat],
 								});

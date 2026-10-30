@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate } from "./format.ts";
+import { formatDate, formatUnit } from "./format.ts";
 
 describe("formatDate", () => {
 	it("writes the day of the boarding pass, with no change of time zone", () => {
@@ -9,5 +9,21 @@ describe("formatDate", () => {
 
 	it("uses the locale", () => {
 		expect(formatDate("2024-05-12", "it")).toBe("12 mag 2024");
+	});
+});
+
+describe("formatUnit", () => {
+	it("writes a distance, a speed and an altitude", () => {
+		expect(formatUnit(10668, "kilometer", "en")).toBe("10,668 km");
+		expect(formatUnit(850, "kilometer-per-hour", "en")).toBe("850 km/h");
+		expect(formatUnit(980, "meter", "en")).toBe("980 m");
+	});
+
+	it("uses the locale", () => {
+		expect(formatUnit(10668, "meter", "it")).toBe("10.668 m");
+	});
+
+	it("writes no decimals", () => {
+		expect(formatUnit(12.6, "kilometer", "en")).toBe("13 km");
 	});
 });

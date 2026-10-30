@@ -9,3 +9,14 @@ export function formatDate(isoDate: string, locale: string): string {
 		timeZone: "UTC",
 	}).format(new Date(`${isoDate}T00:00:00Z`));
 }
+
+export type Unit = "kilometer" | "kilometer-per-hour" | "meter";
+
+/** A value of the in-flight panel, for example "10,668 km", with no decimals. */
+export function formatUnit(value: number, unit: Unit, locale: string): string {
+	return new Intl.NumberFormat(locale, {
+		style: "unit",
+		unit,
+		maximumFractionDigits: 0,
+	}).format(value);
+}
