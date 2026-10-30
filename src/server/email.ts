@@ -1,3 +1,8 @@
+import {
+	acceptLanguageTags,
+	type Locale,
+	pickLocale,
+} from "../shared/locale.ts";
 import { emailText } from "./email-text.ts";
 
 type EmailEnv = Pick<Env, "RESEND_API_KEY" | "EMAIL_FROM" | "BETTER_AUTH_URL">;
@@ -5,7 +10,19 @@ type EmailEnv = Pick<Env, "RESEND_API_KEY" | "EMAIL_FROM" | "BETTER_AUTH_URL">;
 type MagicLink = {
 	to: string;
 	url: string;
+	locale: Locale;
 };
+
+/**
+ * The locale of the email: the header `Accept-Language` of the browser that
+ * asks for the link. The page reads `navigator.languages` of the same browser,
+ * thus the email has the language of the page.
+ */
+export function localeOfRequest(headers: Headers | undefined): Locale {
+	return pickLocale(
+		acceptLanguageTags(headers?.get("accept-language") ?? null),
+	);
+}
 
 const RESEND_URL = "https://api.resend.com/emails";
 
@@ -54,6 +71,7 @@ export async function sendMagicLinkEmail(
 	}
 
 	const href = escapeHtml(link.url);
+	const text = emailText[link.locale];
 	const response = await fetchFn(RESEND_URL, {
 		method: "POST",
 		headers: {
@@ -63,9 +81,9 @@ export async function sendMagicLinkEmail(
 		body: JSON.stringify({
 			from: env.EMAIL_FROM,
 			to: [link.to],
-			subject: emailText.magicLinkSubject,
-			text: `${emailText.magicLinkIntro}\n\n${link.url}\n\n${emailText.magicLinkExpiry}`,
-			html: `<p>${emailText.magicLinkIntro}</p><p><a href="${href}">${emailText.magicLinkButton}</a></p><p>${emailText.magicLinkExpiry}</p>`,
+			subject: text.magicLinkSubject,
+			text: `${text.magicLinkIntro}\n\n${link.url}\n\n${text.magicLinkExpiry}`,
+			html: `<p>${text.magicLinkIntro}</p><p><a href="${href}">${text.magicLinkButton}</a></p><p>${text.magicLinkExpiry}</p>`,
 		}),
 	});
 

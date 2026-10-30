@@ -332,21 +332,32 @@ boarding pass adds its tokens to that file.
 
 ### 5.2 The languages
 
-The interface is in English. Italian is the next language.
+The interface and the emails are in English and in Italian.
 
-- `src/client/i18n/locale.ts` gives the supported locales and `pickLocale`.
-  `pickLocale` reads `navigator.languages` and compares the primary subtag only.
+- `src/shared/locale.ts` gives the supported locales and `pickLocale`. `pickLocale`
+  compares the primary subtag only: `it-IT` gives `it`. The client and the server share
+  this file.
+- The browser selects the language. The page reads `navigator.languages`. The Worker
+  reads the header `Accept-Language` of the same browser with `acceptLanguageTags`. The
+  application has no selector of the language. The owner chose that in issue #12: a
+  selector can come later with no other change.
 - `src/client/i18n/en.ts` holds the English text. Its keys give the type `Messages`.
+  `it.ts` holds the Italian text with the same type.
 - `src/client/i18n/messages.ts` holds one catalogue for each locale, with the type
   `Record<Locale, Messages>`. Thus a missing catalogue or a missing key is a compile
-  error.
+  error. A test finds an Italian text that is the same as the English text, except
+  for names, codes and units.
 - A component reads the text with `useText()`. A component holds no text for the user.
-
-To add a language, add its tag to `LOCALES` and its catalogue to `messages`. The project
-uses no i18n library: two typed objects are sufficient.
+- `main.tsx` writes the locale in the `lang` attribute of the page. The dates of the
+  pass and of the archive use that locale, for example `12 MAG 2024`.
 
 The text of an email is on the server, in `src/server/email-text.ts`, because the Worker
-sends the email.
+sends the email. It has the type `Record<Locale, …>`. Better Auth gives the request to
+`sendMagicLink`, and `localeOfRequest` of `src/server/email.ts` reads its header.
+
+To add a language, add its tag to `LOCALES`. Then the compiler asks for its catalogue
+and for the text of its emails. The project uses no i18n library: typed objects are
+sufficient.
 
 `index.html` holds the title and the description in English. A crawler reads no
 JavaScript, thus those two items cannot come from the catalogue.

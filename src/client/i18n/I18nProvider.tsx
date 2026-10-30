@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { DEFAULT_LOCALE, type Locale } from "./locale.ts";
+import { DEFAULT_LOCALE, type Locale } from "../../shared/locale.ts";
 import { type Messages, messages } from "./messages.ts";
 
 const TextContext = createContext<Messages>(messages[DEFAULT_LOCALE]);

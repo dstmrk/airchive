@@ -4,7 +4,7 @@ import { magicLink } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/d1";
 import { MAGIC_LINK_TTL_MINUTES } from "../shared/auth.ts";
 import * as schema from "./db/schema.ts";
-import { sendMagicLinkEmail } from "./email.ts";
+import { localeOfRequest, sendMagicLinkEmail } from "./email.ts";
 import { describeError } from "./errors.ts";
 
 /**
@@ -29,8 +29,12 @@ export function createAuth(env: Env, fetchFn: typeof fetch = fetch) {
 				// The database keeps the hash of the token. A copy of the database
 				// then gives no link that opens an account.
 				storeToken: "hashed",
-				sendMagicLink: ({ email, url }) =>
-					sendMagicLinkEmail(env, { to: email, url }, fetchFn),
+				sendMagicLink: ({ email, url }, ctx) =>
+					sendMagicLinkEmail(
+						env,
+						{ to: email, url, locale: localeOfRequest(ctx?.headers) },
+						fetchFn,
+					),
 			}),
 		],
 		rateLimit: {
