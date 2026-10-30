@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type StyleSpecification, setWorkerUrl } from "maplibre-gl";
+import { useMemo } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 // The bundle serves the worker of MapLibre, not a CDN.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
@@ -8,6 +9,7 @@ import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import { greatCircle, type LonLat, routeBounds } from "../lib/great-circle.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
+import { flownRoute, position } from "../lib/replay.ts";
 
 setWorkerUrl(workerUrl);
 
@@ -58,20 +60,48 @@ function AirportPin({ code }: Readonly<{ code: string }>) {
 	);
 }
 
+/** An aircraft seen from above, with the nose to the north. */
+function Aircraft() {
+	return (
+		<svg viewBox="0 0 24 24" aria-hidden="true" className="size-7 drop-shadow">
+			<path
+				d="M12 2c.8 0 1.4.9 1.4 2v5.2l7.6 4.4v2l-7.6-2.2v4.4l2.2 1.7V21L12 20l-3.6 1v-1.5l2.2-1.7v-4.4L3 15.6v-2l7.6-4.4V4c0-1.1.6-2 1.4-2z"
+				className="fill-pass-accent stroke-paper"
+				strokeWidth="1"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
 /**
  * The route of a flight on a map: the great circle between the two airports.
  * Paragraph 5.5 of `docs/architecture.md` gives the decisions. The page loads
  * this component lazily, thus the archive does not load MapLibre.
+ *
+ * During the replay, `progress` (from 0 to 1) puts the aircraft on the route,
+ * and a solid line shows the part that it flew.
  */
 export default function FlightMap({
 	origin,
 	destination,
-}: Readonly<{ origin: Airport; destination: Airport }>) {
+	progress = null,
+}: Readonly<{
+	origin: Airport;
+	destination: Airport;
+	progress?: number | null;
+}>) {
 	const text = useText();
 	const { data: mapStyle, isError } = usePaperStyle();
 	const from: LonLat = [origin.lon, origin.lat];
 	const to: LonLat = [destination.lon, destination.lat];
-	const route = greatCircle(from, to);
+	const route = useMemo(
+		() =>
+			greatCircle([origin.lon, origin.lat], [destination.lon, destination.lat]),
+		[origin, destination],
+	);
+	const aircraft = progress === null ? null : position(route, progress);
+	const flown = progress === null ? [] : flownRoute(route, progress);
 	const end = route.at(-1) ?? to;
 	const accent = getComputedStyle(document.documentElement)
 		.getPropertyValue("--color-pass-accent")
@@ -118,6 +148,22 @@ export default function FlightMap({
 								}}
 							/>
 						</Source>
+						<Source
+							id="flown"
+							type="geojson"
+							data={{
+								type: "Feature",
+								properties: {},
+								geometry: { type: "LineString", coordinates: flown },
+							}}
+						>
+							<Layer
+								id="flown-line"
+								type="line"
+								layout={{ "line-cap": "round" }}
+								paint={{ "line-color": accent, "line-width": 3 }}
+							/>
+						</Source>
 						<Marker longitude={from[0]} latitude={from[1]} anchor="bottom">
 							<AirportPin code={origin.iata} />
 						</Marker>
@@ -125,6 +171,16 @@ export default function FlightMap({
 						<Marker longitude={end[0]} latitude={end[1]} anchor="bottom">
 							<AirportPin code={destination.iata} />
 						</Marker>
+						{aircraft && (
+							<Marker
+								longitude={aircraft.lon}
+								latitude={aircraft.lat}
+								rotation={aircraft.bearing}
+								rotationAlignment="map"
+							>
+								<Aircraft />
+							</Marker>
+						)}
 					</MapView>
 				)}
 			</div>

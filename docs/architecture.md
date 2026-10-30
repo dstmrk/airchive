@@ -405,19 +405,33 @@ These rules apply:
 ### 5.6 Relive your flight
 
 The route is the **great circle** between the two airports. It is not the real track of
-the aircraft. The duration comes from the times of the `.pkpass` file, or from an
-estimate from the distance. The person can correct the duration.
+the aircraft.
 
-A pure function `position(t)` gives the latitude, the longitude and the bearing for
-`t` from 0 to 1. Each mode of the playback is a different speed of `t`:
+The button "Relive your flight" is on the stub of the paper pass. At the gate, the agent
+tears the stub at the boarding, thus the stub tears along the perforation in 700 ms.
+Then the page goes to the map and the aircraft departs. The stub is on the pass again
+after the landing. Issue #25 adds a tear with a finger.
 
-- real time (1×),
-- a set of faster speeds,
-- a fixed duration, for example 30 seconds,
-- a timeline that the person can drag.
+`src/client/lib/replay.ts` holds the logic, with tests:
 
-The owner selects the speeds on a mockup. If the user selects `prefers-reduced-motion`,
-the playback does not start automatically.
+- `position(route, t)` gives the longitude, the latitude and the bearing for `t` from 0
+  to 1. It uses the points of `greatCircle`, which have equal angles between them. Thus
+  a linear step of `t` is a constant speed.
+- `replay(state, event)` gives the states: `idle`, `boarding`, `playing`, `paused` and
+  `landed`. The replay never starts alone, thus `prefers-reduced-motion` needs no other
+  rule. With that preference, the stub does not move: it goes away.
+- The speeds are `15 s`, `30 s` (the default), `1 min`, `5 min`, `4×` and real time. A
+  short replay has a fixed length for each flight. A long replay is a multiple of the
+  real time. On a telephone, `4×` and real time are in the menu `⋯`.
+
+`src/client/lib/flight-time.ts` gives the duration. The times of the pass and the time
+zone of each airport give it. With no arrival time, the estimate is the distance at
+800 km/h, plus 30 minutes for the taxi, the take-off and the landing. The person corrects
+the duration with the arrival time in the form. During the replay, the local time of
+each airport moves. With no departure time, the controls show the time of the flight.
+
+In real time, the Wake Lock API keeps the screen of a telephone on. If the browser
+refuses the lock, the replay continues.
 
 The schema keeps optional fields for the real times and for a real track. An API of
 flights (for example AeroDataBox) or a real ADS-B track (for example OpenSky) can fill
