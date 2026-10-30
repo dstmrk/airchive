@@ -75,7 +75,9 @@ export function PassImport({
 			<input
 				id={id}
 				type="file"
-				accept=".pkpass,application/vnd.apple.pkpass"
+				// No `accept`: Safari on iOS greys out a .pkpass file for
+				// ".pkpass,application/vnd.apple.pkpass". The content decides,
+				// in extract.ts: any other file gives "not a pass".
 				onChange={onChange}
 				disabled={state === "reading"}
 				className="sr-only"
