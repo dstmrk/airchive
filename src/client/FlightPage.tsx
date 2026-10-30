@@ -1,8 +1,12 @@
 import { Link, useParams } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { PaperPass } from "./components/PaperPass.tsx";
 import { RequireSession } from "./components/RequireSession.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
 import { useFlight } from "./lib/queries.ts";
+
+/** MapLibre is large: only the page of a flight loads it. */
+const FlightMap = lazy(() => import("./components/FlightMap.tsx"));
 
 export function FlightPage() {
 	return (
@@ -41,6 +45,16 @@ function FlightDetail() {
 			{isError && <p role="alert">{text.flightNotFound}</p>}
 			{flight && (
 				<PaperPass flight={flight} locale={document.documentElement.lang} />
+			)}
+			{flight?.originAirport && flight.destinationAirport && (
+				<Suspense
+					fallback={<div className="h-72 rounded-[14px] bg-map-land md:h-96" />}
+				>
+					<FlightMap
+						origin={flight.originAirport}
+						destination={flight.destinationAirport}
+					/>
+				</Suspense>
 			)}
 		</main>
 	);
