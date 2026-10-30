@@ -435,6 +435,32 @@ To add a logo:
 A file with more colours, shapes or transforms needs a trace first. Yume traces those
 files with `potrace`.
 
+#### 5.4.2 The mark of airchive
+
+The mark is the icon `tickets-plane` of Lucide on a tile in the accent of the theme. The
+owner chose it in issue #19, from three variants on a mockup. The line is 2.6, not the 2
+of Lucide: at 16 pixels, a thin line is not clear in the tab of a browser.
+`src/client/brand/LUCIDE-LICENSE.txt` holds the ISC licence.
+
+`src/client/brand/mark.ts` is the one source of the drawing. `Mark.tsx` draws it in the
+interface with the tokens of the theme. `node scripts/icons/build.mjs` writes the files
+of `public/`: `favicon.svg`, `favicon.ico`, the PNG icons and `manifest.webmanifest`.
+A test compares the text files with `mark.ts` and with the tokens of `app.css`. Thus a
+change of a colour without a new build makes the test fail.
+
+The script draws the PNG files with Chromium, thus it needs Playwright. A cloud session
+of Claude Code has it, and the project does not install it.
+
+Each place gets its shape:
+
+- A tab and a page use the tile with round corners.
+- iOS gives the corners, thus `apple-touch-icon.png` is square.
+- Android cuts a maskable icon to a circle of 40%. The maskable icon has a larger margin,
+  thus the glyph stays in that circle.
+
+The manifest has `display: browser`, not `standalone`. On iOS, an installed application
+has its own cookies, and the link of the email opens in Safari. Thus the sign-in fails.
+
 ### 5.5 The map
 
 The page of a flight shows the route under the pass. The map uses `react-map-gl` on

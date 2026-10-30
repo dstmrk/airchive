@@ -161,6 +161,7 @@ npm run db:generate            # writes a migration after a change of schema.ts
 npm run airports:build         # writes src/server/airports/airports.json from the sources
 npm run logos:add -- --codes FR --title Ryanair --simple-icons ryanair  # adds a logo
 npm run logos:missing          # writes the D1 query of the codes with no logo
+node scripts/icons/build.mjs   # writes the icons of public/ from src/client/brand/mark.ts
 ```
 
 `npm run dev` uses a local D1 database in `.wrangler/`. That directory stays out of git.
