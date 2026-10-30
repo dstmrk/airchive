@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { MAGIC_LINK_TTL_MINUTES } from "../shared/auth.ts";
 import * as schema from "./db/schema.ts";
 import { sendMagicLinkEmail } from "./email.ts";
+import { describeError } from "./errors.ts";
 
 /**
  * Better Auth for one request. A Worker receives its bindings with each
@@ -41,6 +42,13 @@ export function createAuth(env: Env, fetchFn: typeof fetch = fetch) {
 				// Each request sends one email. The limit protects the quota of
 				// Resend and the inbox of a person.
 				"/sign-in/magic-link": { window: 60, max: 3 },
+			},
+		},
+		onAPIError: {
+			// Better Auth logs the outer error only. The cause holds the useful
+			// message, for example "no such table" after a missed migration.
+			onError: (error) => {
+				console.error(`Auth error: ${describeError(error)}`);
 			},
 		},
 		advanced: {

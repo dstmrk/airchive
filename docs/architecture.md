@@ -405,7 +405,19 @@ The owner does each operation in the dashboard of Cloudflare. No person needs
   deploys the Worker `airchive` after each merge on `main`. The build command is
   `npm run build`. The deploy command is `npm run deploy`: it applies the migrations to
   the remote database, then it runs `wrangler deploy`.
-- **The examination.** After a deployment, `GET /api/health` must give `ok`.
+- **The examination.** After a deployment, `GET /api/health` must give `ok`. The route
+  examines that D1 answers and that each table of `schema.ts` exists. A deployment that
+  skipped the migrations gives 503, and the log names the missing tables.
+
+The first deployment of the authentication used `npx wrangler deploy` as the deploy
+command. The Worker then ran on an empty database, `/api/health` gave `ok`, and each
+sign-in failed with 500. The check of the tables prevents that silent state.
+
+An error that no route handles goes to `app.onError` of Hono. The log line gives the
+message of each cause, the deepest last, because a D1 error holds "no such table" in a
+cause. It gives only the first line of each message: Drizzle writes the parameters of a
+query on the next lines, and a parameter can hold an email address. `onAPIError` of
+Better Auth writes the errors inside its endpoints with the same function.
 
 The name of the Worker in the dashboard must be the same as `name` in
 `wrangler.jsonc`.

@@ -1,6 +1,9 @@
+import { getTableName, is, Table } from "drizzle-orm";
 import { Hono } from "hono";
 import { airports } from "./airports/index.ts";
 import { createAuth } from "./auth.ts";
+import * as schema from "./db/schema.ts";
+import { describeError } from "./errors.ts";
 import { flightRoutes } from "./flights.ts";
 import { type AppEnv, requireSession } from "./session.ts";
 
@@ -11,18 +14,37 @@ import { type AppEnv, requireSession } from "./session.ts";
  */
 export const app = new Hono<AppEnv>();
 
+/** Each table of `schema.ts`. A new table enters the check with no other change. */
+const REQUIRED_TABLES = Object.values(schema)
+	.filter((value) => is(value, Table))
+	.map((table) => getTableName(table));
+
 /**
- * The health route sends one query to D1. Thus the answer `ok` shows that the
- * Worker runs and that the binding `DB` operates.
+ * The health route examines that D1 answers and that each table of the schema
+ * exists. A deployment that skipped the migrations then gives 503, not `ok`.
+ * Refer to paragraph 7 of `docs/architecture.md`.
  *
- * A failure gives the status 503 and no detail. The detail of a database error
- * is not for a public client.
+ * The answer gives no detail: the log names the missing tables.
  */
 app.get("/api/health", async (c) => {
 	try {
-		await c.env.DB.prepare("SELECT 1 AS ok").first();
+		const placeholders = REQUIRED_TABLES.map(() => "?").join(", ");
+		const { results } = await c.env.DB.prepare(
+			`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${placeholders})`,
+		)
+			.bind(...REQUIRED_TABLES)
+			.all<{ name: string }>();
+		const found = new Set(results.map((row) => row.name));
+		const missing = REQUIRED_TABLES.filter((name) => !found.has(name));
+		if (missing.length > 0) {
+			console.error(
+				`Health: missing tables ${missing.join(", ")}. Apply the migrations.`,
+			);
+			return c.json({ status: "unavailable" }, 503);
+		}
 		return c.json({ status: "ok" });
-	} catch {
+	} catch (error) {
+		console.error(`Health: ${describeError(error)}`);
 		return c.json({ status: "unavailable" }, 503);
 	}
 });
@@ -52,6 +74,19 @@ app.get("/api/airports", (c) =>
 );
 
 app.route("/api/flights", flightRoutes);
+
+/**
+ * An error that no route handles. Hono writes the whole error by default, and
+ * the log of Cloudflare then shows the stack with no message. This line gives
+ * the message of each cause, with no parameter of a query. Refer to
+ * `errors.ts`.
+ */
+app.onError((error, c) => {
+	console.error(
+		`Unhandled error on ${c.req.method} ${c.req.path}: ${describeError(error)}`,
+	);
+	return c.json({ error: "internal" }, 500);
+});
 
 /**
  * The asset handler sends to the Worker only the paths of `run_worker_first`

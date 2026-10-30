@@ -115,6 +115,9 @@ These rules apply to the tables and to the auth:
   test that needs a session uses `signIn` of `src/server/test/session.ts`.
 - Do not edit `airports.json` by hand. Change `scripts/airports/merge.ts`, then run
   `npm run airports:build`. The file never removes a code: a flight holds only codes.
+- Write an error to the log with `describeError` of `src/server/errors.ts`. It gives
+  the message of each cause, and no parameter of a query. Do not write an error object
+  or its stack to the log.
 - Better Auth skips the check of the origin when `NODE_ENV` is `test`. Keep
   `disableOriginCheck: false` in `auth.ts`, or the tests do not examine that check.
 
