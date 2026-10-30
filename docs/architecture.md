@@ -124,7 +124,7 @@ slice, because it needs no parser.
 | `origin`, `destination` | yes | IATA codes of the dataset of paragraph 3.4. They are different. |
 | `departureDate` | yes | The local day of the boarding pass, from 1950. |
 | `departureTime`, `arrivalDate`, `arrivalTime` | no | Local "wall clock" times of each airport. The arrival is not before the departure date. |
-| `seat`, `cabinClass`, `passengerName`, `bookingReference` | no | `cabinClass` is `economy`, `premium_economy`, `business` or `first`. |
+| `seat`, `cabinClass`, `passengerName`, `bookingReference` | no | `seat` is a row and a letter (`14A`), or `INF` for an infant with no seat. `cabinClass` is `economy`, `premium_economy`, `business` or `first`. |
 
 The times are local times, as the boarding pass gives them, not UTC. The time zone of
 each airport converts them when the replay of paragraph 5.6 needs UTC. A barcode gives a

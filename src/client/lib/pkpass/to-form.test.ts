@@ -117,6 +117,34 @@ describe("passToForm", () => {
 		});
 	});
 
+	it("reads INF in a free field when the barcode gives no seat", () => {
+		const pass = {
+			barcodes: [{ message: BCBP.replace("014A", "    ") }],
+			boardingPass: {
+				transitType: "PKTransitTypeAir",
+				headerFields: [{ key: "seat", label: "Seat", value: "INF" }],
+			},
+		};
+
+		expect(passToForm(pass, options)).toMatchObject({
+			values: { seat: "INF" },
+		});
+	});
+
+	it("reads INF in the semantic tags", () => {
+		const pass = {
+			...semanticPass,
+			semantics: {
+				...semanticPass.semantics,
+				seats: [{ seatIdentifier: "inf" }],
+			},
+		};
+
+		expect(passToForm(pass, options)).toMatchObject({
+			values: { seat: "INF" },
+		});
+	});
+
 	it("prefers the semantic tags to the barcode", () => {
 		const pass = {
 			...semanticPass,

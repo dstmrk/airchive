@@ -56,6 +56,13 @@ describe("flightInputSchema", () => {
 		});
 	});
 
+	it.each(["INF", "inf"])(
+		"accepts the seat %s of an infant with no seat",
+		(seat) => {
+			expect(parse({ seat }).data?.seat).toBe("INF");
+		},
+	);
+
 	it("removes the leading zeros of the flight number", () => {
 		expect(parse({ flightNumber: "0784" }).data?.flightNumber).toBe("784");
 		expect(parse({ flightNumber: "0000" }).success).toBe(false);
@@ -80,6 +87,8 @@ describe("flightInputSchema", () => {
 		["departureTime", "25:00"],
 		["departureTime", "9:5"],
 		["seat", "14AB5"],
+		["seat", "INFT"],
+		["seat", "1INF"],
 		["cabinClass", "luxury"],
 		["bookingReference", "AB"],
 		["passengerName", "x".repeat(101)],
