@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { flightSearch, syncCabin } from "./cabin.ts";
+import { journeySearch, syncCabin } from "./cabin.ts";
 
-describe("flightSearch", () => {
+describe("journeySearch", () => {
 	it("keeps the cabin of the replay", () => {
-		expect(flightSearch({ replay: true })).toEqual({ replay: true });
+		expect(journeySearch({ replay: true })).toEqual({ replay: true });
 	});
 
 	it.each([
@@ -13,7 +13,7 @@ describe("flightSearch", () => {
 		{ replay: null },
 		{ other: true },
 	])("gives no cabin for %o", (search) => {
-		expect(flightSearch(search)).toEqual({});
+		expect(journeySearch(search)).toEqual({});
 	});
 });
 

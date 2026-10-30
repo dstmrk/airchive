@@ -110,6 +110,30 @@ export const rateLimit = sqliteTable(
 );
 
 /**
+ * A journey: the flights from an origin to a final destination, with the
+ * connections between them. A journey holds one flight or more. With no
+ * title, the client gives a title from the city of the final destination.
+ * Refer to paragraph 3.5 of `docs/architecture.md`.
+ */
+export const journey = sqliteTable(
+	"journey",
+	{
+		id: text("id").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		title: text("title"),
+		createdAt: timestamp("created_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: timestamp("updated_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(table) => [index("journey_owner_idx").on(table.ownerId)],
+);
+
+/**
  * A flight of the archive of one person. The times are local times of the
  * airports, as the boarding pass gives them. The airports are IATA codes of
  * `src/server/airports/airports.json`, and that file never removes a code.
@@ -122,6 +146,9 @@ export const flight = sqliteTable(
 		ownerId: text("owner_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		journeyId: text("journey_id")
+			.notNull()
+			.references(() => journey.id, { onDelete: "cascade" }),
 		airlineCode: text("airline_code").notNull(),
 		flightNumber: text("flight_number").notNull(),
 		airlineName: text("airline_name"),
@@ -148,5 +175,6 @@ export const flight = sqliteTable(
 	// The archive lists the flights of one owner by date.
 	(table) => [
 		index("flight_owner_date_idx").on(table.ownerId, table.departureDate),
+		index("flight_journey_idx").on(table.journeyId),
 	],
 );

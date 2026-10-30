@@ -1,20 +1,54 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Airport } from "../../shared/airport.ts";
 import type { FlightInput, FlightView } from "../../shared/flight.ts";
+import type { JourneyView } from "../../shared/journey.ts";
 import { apiRequest } from "./api.ts";
 
 /**
- * The queries and the mutations of the flights. Each mutation invalidates
- * the list, thus the archive shows the change after the save.
+ * The queries and the mutations of the flights and of the journeys. A change
+ * of a flight can create, change or delete a journey, thus each mutation
+ * invalidates the two lists.
  */
 
 const flightsKey = ["flights"] as const;
+const journeysKey = ["journeys"] as const;
 
-export function useFlights(enabled: boolean) {
+function useInvalidate() {
+	const client = useQueryClient();
+	return () =>
+		Promise.all([
+			client.invalidateQueries({ queryKey: flightsKey }),
+			client.invalidateQueries({ queryKey: journeysKey }),
+		]);
+}
+
+export function useJourneys(enabled = true) {
 	return useQuery({
-		queryKey: flightsKey,
-		queryFn: () => apiRequest<FlightView[]>("/api/flights"),
+		queryKey: journeysKey,
+		queryFn: () => apiRequest<JourneyView[]>("/api/journeys"),
 		enabled,
+	});
+}
+
+export function useJourney(id: string) {
+	return useQuery({
+		queryKey: [...journeysKey, id],
+		queryFn: () =>
+			apiRequest<JourneyView>(`/api/journeys/${encodeURIComponent(id)}`),
+		retry: false,
+	});
+}
+
+/** An empty title gives the default title again. */
+export function useRenameJourney(id: string) {
+	const invalidate = useInvalidate();
+	return useMutation({
+		mutationFn: (title: string) =>
+			apiRequest<{ id: string; title: string | null }>(
+				`/api/journeys/${encodeURIComponent(id)}`,
+				{ method: "PATCH", body: { title } },
+			),
+		onSuccess: invalidate,
 	});
 }
 
@@ -28,7 +62,7 @@ export function useFlight(id: string) {
 }
 
 export function useSaveFlight(id?: string) {
-	const client = useQueryClient();
+	const invalidate = useInvalidate();
 	return useMutation({
 		mutationFn: (flight: FlightInput) =>
 			id === undefined
@@ -40,18 +74,18 @@ export function useSaveFlight(id?: string) {
 						method: "PUT",
 						body: flight,
 					}),
-		onSuccess: () => client.invalidateQueries({ queryKey: flightsKey }),
+		onSuccess: invalidate,
 	});
 }
 
 export function useDeleteFlight(id: string) {
-	const client = useQueryClient();
+	const invalidate = useInvalidate();
 	return useMutation({
 		mutationFn: () =>
 			apiRequest<void>(`/api/flights/${encodeURIComponent(id)}`, {
 				method: "DELETE",
 			}),
-		onSuccess: () => client.invalidateQueries({ queryKey: flightsKey }),
+		onSuccess: invalidate,
 	});
 }
 

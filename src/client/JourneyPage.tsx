@@ -5,9 +5,18 @@ import {
 	useRouter,
 	useSearch,
 } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+	lazy,
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { Airport } from "../shared/airport.ts";
 import type { FlightView } from "../shared/flight.ts";
+import type { JourneyView } from "../shared/journey.ts";
 import { PaperPass } from "./components/PaperPass.tsx";
 import {
 	cabinTransition,
@@ -20,59 +29,142 @@ import { syncCabin } from "./lib/cabin.ts";
 import { flightProfile, momentAt } from "./lib/flight-profile.ts";
 import { flightTiming } from "./lib/flight-time.ts";
 import { distanceKm } from "./lib/great-circle.ts";
-import { useFlight } from "./lib/queries.ts";
+import { journeyTitle } from "./lib/journey.ts";
+import { useJourney, useRenameJourney } from "./lib/queries.ts";
 import { inCabin, isTorn } from "./lib/replay.ts";
 import { replayMinute } from "./lib/terminator.ts";
 
-/** MapLibre is large: only the page of a flight loads it. */
+/** MapLibre is large: only the page of a journey loads it. */
 const FlightMap = lazy(() => import("./components/FlightMap.tsx"));
 
-export function FlightPage() {
+export function JourneyPage() {
 	return (
 		<RequireSession>
-			<FlightDetail />
+			<JourneyDetail />
 		</RequireSession>
 	);
 }
 
-/** The paper boarding pass of one flight, with the link to the form. */
-function FlightDetail() {
+/**
+ * The paper boarding passes of one journey, in the order of the legs, with
+ * the title and a link to the form of each flight.
+ */
+function JourneyDetail() {
 	const text = useText();
-	const { flightId } = useParams({ from: "/flights/$flightId" });
-	const { data: flight, isPending, isError } = useFlight(flightId);
+	const { journeyId } = useParams({ from: "/journeys/$journeyId" });
+	const { data: journey, isPending, isError } = useJourney(journeyId);
+	const locale = document.documentElement.lang;
+	const [single] = journey?.flights.length === 1 ? journey.flights : [];
 
 	return (
 		<main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 has-[>[data-cabin]]:*:not-data-cabin:invisible">
-			<div className="flex items-baseline justify-between gap-2">
-				<Link
-					to="/"
-					className="text-muted-foreground text-sm underline underline-offset-4"
-				>
-					{text.backToArchive}
-				</Link>
-				{flight && (
+			<Link
+				to="/"
+				className="text-muted-foreground text-sm underline underline-offset-4"
+			>
+				{text.backToArchive}
+			</Link>
+			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
+			{isError && <p role="alert">{text.journeyNotFound}</p>}
+			{journey && <JourneyTitle journey={journey} />}
+			{journey?.flights.map((flight) => (
+				<section key={flight.id} className="flex flex-col gap-2">
 					<Link
 						to="/flights/$flightId/edit"
-						params={{ flightId }}
-						className="font-medium text-sm underline underline-offset-4"
+						params={{ flightId: flight.id }}
+						className="self-end font-medium text-sm underline underline-offset-4"
 					>
 						{text.editFlight}
 					</Link>
-				)}
-			</div>
-			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
-			{isError && <p role="alert">{text.flightNotFound}</p>}
-			{flight &&
-				(flight.originAirport && flight.destinationAirport ? (
-					<FlightReplay
-						flight={flight}
-						origin={flight.originAirport}
-						destination={flight.destinationAirport}
-					/>
-				) : (
-					<PaperPass flight={flight} locale={document.documentElement.lang} />
-				))}
+					{flight === single &&
+					flight.originAirport &&
+					flight.destinationAirport ? (
+						<FlightReplay
+							flight={flight}
+							origin={flight.originAirport}
+							destination={flight.destinationAirport}
+						/>
+					) : (
+						<PaperPass flight={flight} locale={locale} />
+					)}
+				</section>
+			))}
 		</main>
+	);
+}
+
+/** The title of the journey, and a form that changes it. */
+function JourneyTitle({ journey }: Readonly<{ journey: JourneyView }>) {
+	const text = useText();
+	const rename = useRenameJourney(journey.id);
+	const [draft, setDraft] = useState<string | null>(null);
+
+	if (draft === null) {
+		return (
+			<div className="flex items-baseline justify-between gap-3">
+				<h1 className="font-semibold text-2xl tracking-tight">
+					{journeyTitle(journey, text.journeyDefaultTitle)}
+				</h1>
+				<button
+					type="button"
+					onClick={() => setDraft(journey.title ?? "")}
+					className="shrink-0 font-medium text-sm underline underline-offset-4"
+				>
+					{text.journeyRename}
+				</button>
+			</div>
+		);
+	}
+	return (
+		<form
+			className="flex flex-col gap-2"
+			onSubmit={(event) => {
+				event.preventDefault();
+				rename.mutate(draft, { onSuccess: () => setDraft(null) });
+			}}
+		>
+			<label htmlFor="journey-title" className="font-medium text-sm">
+				{text.journeyTitleLabel}
+			</label>
+			<input
+				id="journey-title"
+				value={draft}
+				maxLength={80}
+				placeholder={journeyTitle(
+					{ ...journey, title: null },
+					text.journeyDefaultTitle,
+				)}
+				aria-describedby="journey-title-hint"
+				onChange={(event) => setDraft(event.target.value)}
+				// biome-ignore lint/a11y/noAutofocus: the person asked for the field with the button "rename".
+				autoFocus
+				className="h-11 w-full rounded-md border border-foreground/20 bg-white px-3 text-base"
+			/>
+			<p id="journey-title-hint" className="text-muted-foreground text-sm">
+				{text.journeyTitleHint}
+			</p>
+			<div className="flex gap-2">
+				<button
+					type="submit"
+					disabled={rename.isPending}
+					className="h-11 rounded-md bg-foreground px-4 font-medium text-background disabled:opacity-50"
+				>
+					{text.journeySaveTitle}
+				</button>
+				<button
+					type="button"
+					onClick={() => setDraft(null)}
+					className="h-11 rounded-md border border-foreground/20 px-4 font-medium"
+				>
+					{text.journeyCancel}
+				</button>
+			</div>
+			{rename.isError && (
+				<p className="text-red-700 text-sm" role="alert">
+					{text.journeyRenameFailed}
+				</p>
+			)}
+		</form>
 	);
 }
 
@@ -103,8 +195,8 @@ function FlightReplay({
 }: Readonly<{ flight: FlightView; origin: Airport; destination: Airport }>) {
 	const text = useText();
 	const router = useRouter();
-	const navigate = useNavigate({ from: "/flights/$flightId" });
-	const { replay: inUrl = false } = useSearch({ from: "/flights/$flightId" });
+	const navigate = useNavigate({ from: "/journeys/$journeyId" });
+	const { replay: inUrl = false } = useSearch({ from: "/journeys/$journeyId" });
 	const timing = useMemo(
 		() =>
 			flightTiming({

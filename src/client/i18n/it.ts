@@ -38,7 +38,7 @@ export const it: Messages = {
 	editFlightTitle: "Modifica il volo",
 	flightNotFound: "Questo volo non esiste.",
 	backToArchive: "Torna ai tuoi voli",
-	backToFlight: "Torna al volo",
+	backToJourney: "Torna al viaggio",
 
 	fieldDesignator: "Volo",
 	fieldDesignatorHint: "Per esempio AZ 784",
@@ -54,6 +54,9 @@ export const it: Messages = {
 	fieldCabinClass: "Classe (facoltativa)",
 	fieldPassengerName: "Nome del passeggero (facoltativo)",
 	fieldBookingReference: "Codice di prenotazione (facoltativo)",
+	fieldJourney: "Viaggio",
+	fieldJourneyHint: "Metti insieme i voli di un viaggio con scali.",
+	journeyNew: "Un nuovo viaggio",
 
 	cabinNone: "Non indicata",
 	cabinEconomy: "Economy",
@@ -66,6 +69,8 @@ export const it: Messages = {
 	issueArrivalBeforeDeparture: "L'arrivo non può essere prima della partenza.",
 	issueUnknownAirport:
 		"Non conosciamo questo aeroporto. Scegline uno dalla lista.",
+	issueUnknownJourney:
+		"Questo viaggio non esiste più. Scegline uno dalla lista.",
 
 	saveFlight: "Salva",
 	saving: "Salvataggio…",
@@ -74,6 +79,16 @@ export const it: Messages = {
 	deleteConfirm: "Eliminare questo volo? Non si può annullare.",
 	deleteFailed: "Non siamo riusciti a eliminare il volo. Riprova più tardi.",
 	editFlight: "Modifica",
+
+	journeyDefaultTitle: "Il mio viaggio a",
+	journeyNotFound: "Questo viaggio non esiste.",
+	journeyRename: "Rinomina",
+	journeyTitleLabel: "Titolo del viaggio",
+	journeyTitleHint: "Lascialo vuoto per il titolo predefinito.",
+	journeySaveTitle: "Salva",
+	journeyCancel: "Annulla",
+	journeyRenameFailed:
+		"Non siamo riusciti a rinominare il viaggio. Riprova più tardi.",
 
 	passTitle: "Carta d'imbarco",
 	passStub: "Tagliando",

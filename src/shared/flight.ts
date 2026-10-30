@@ -19,8 +19,12 @@ export const CABIN_CLASSES = [
 /** The first year that the form accepts. Older dates are an error of input. */
 const FIRST_YEAR = 1950;
 
+/** An identifier that `crypto.randomUUID` gives. */
+export const UUID =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** An empty text, or only spaces, is the same as no value. */
-function optional<T extends z.ZodType>(schema: T) {
+export function optional<T extends z.ZodType>(schema: T) {
 	return z.preprocess(
 		(value) =>
 			value === undefined || (typeof value === "string" && value.trim() === "")
@@ -74,6 +78,8 @@ export const flightInputSchema = z
 		cabinClass: optional(z.enum(CABIN_CLASSES)),
 		passengerName: optional(z.string().trim().max(100)),
 		bookingReference: optional(upper(/^[A-Z0-9]{5,8}$/)),
+		// The journey of the flight. With no value, the flight starts a new journey.
+		journeyId: optional(z.string().regex(UUID)),
 		// The background colour of the `.pkpass` file of the airline, if any.
 		accentColor: optional(
 			z
@@ -126,11 +132,12 @@ export function splitFlightDesignator(
 }
 
 /**
- * A flight as the API gives it: the fields of the form, the identifier and
- * the two airports. The owner and the dates of the row stay on the server.
+ * A flight as the API gives it: the fields of the form, the identifier, the
+ * journey and the two airports. The owner and the dates of the row stay on the server.
  */
-export type FlightView = FlightInput & {
+export type FlightView = Omit<FlightInput, "journeyId"> & {
 	id: string;
+	journeyId: string;
 	originAirport: Airport | null;
 	destinationAirport: Airport | null;
 };

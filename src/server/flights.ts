@@ -1,5 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/d1";
+import { and, eq, notExists, sql } from "drizzle-orm";
+import { type DrizzleD1Database, drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import {
@@ -7,15 +7,14 @@ import {
 	type FlightIssue,
 	type FlightView,
 	flightInputSchema,
+	UUID,
 } from "../shared/flight.ts";
 import { airports } from "./airports/index.ts";
-import { flight } from "./db/schema.ts";
+import { flight, journey } from "./db/schema.ts";
 import { type AppEnv, requireSession } from "./session.ts";
 
 /** A flight is approximately 500 bytes. The limit refuses a body before the parse. */
 const MAX_BODY_BYTES = 16 * 1024;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 type FlightRow = typeof flight.$inferSelect;
 
@@ -23,7 +22,7 @@ type FlightRow = typeof flight.$inferSelect;
  * The flight for the client: the fields of the form, the identifier and the
  * two airports. The owner and the dates of the row stay on the server.
  */
-function toView(row: FlightRow): FlightView {
+export function toView(row: FlightRow): FlightView {
 	const {
 		ownerId: _owner,
 		createdAt: _created,
@@ -68,6 +67,40 @@ async function readFlight(
 	return unknown.length > 0 ? { issues: unknown } : { flight: parsed.data };
 }
 
+/** The issues of a journey that the owner does not have. */
+const UNKNOWN_JOURNEY: FlightIssue[] = [
+	{ path: ["journeyId"], message: "unknown_journey" },
+];
+
+async function ownsJourney(
+	db: DrizzleD1Database,
+	ownerId: string,
+	journeyId: string,
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: journey.id })
+		.from(journey)
+		.where(and(eq(journey.id, journeyId), eq(journey.ownerId, ownerId)));
+	return row !== undefined;
+}
+
+/** A journey holds one flight or more: this statement deletes each empty journey of the owner. */
+function deleteEmptyJourneys(db: DrizzleD1Database, ownerId: string) {
+	return db
+		.delete(journey)
+		.where(
+			and(
+				eq(journey.ownerId, ownerId),
+				notExists(
+					db
+						.select({ one: sql`1` })
+						.from(flight)
+						.where(eq(flight.journeyId, journey.id)),
+				),
+			),
+		);
+}
+
 /**
  * The routes of `/api/flights`. Each query gives the condition on `owner_id`:
  * a flight of another person gives 404, as a flight that does not exist.
@@ -81,34 +114,46 @@ export const flightRoutes = new Hono<AppEnv>()
 			onError: (c) => c.json({ error: "body_too_large" }, 413),
 		}),
 	)
-	.get("/", async (c) => {
-		const rows = await drizzle(c.env.DB)
-			.select()
-			.from(flight)
-			.where(eq(flight.ownerId, c.var.user.id))
-			.orderBy(
-				desc(flight.departureDate),
-				desc(flight.departureTime),
-				desc(flight.createdAt),
-			);
-		return c.json(rows.map(toView));
-	})
+	// With no `journeyId`, the flight starts a new journey of one leg.
 	.post("/", async (c) => {
 		const result = await readFlight(c.req.raw);
 		if ("issues" in result) {
 			return c.json({ error: "invalid_flight", issues: result.issues }, 400);
 		}
+		const db = drizzle(c.env.DB);
+		const ownerId = c.var.user.id;
+		const { journeyId, ...fields } = result.flight;
+		if (journeyId !== null && !(await ownsJourney(db, ownerId, journeyId))) {
+			return c.json({ error: "invalid_flight", issues: UNKNOWN_JOURNEY }, 400);
+		}
 		const now = new Date();
-		const [row] = await drizzle(c.env.DB)
+		const target = journeyId ?? crypto.randomUUID();
+		const insert = db
 			.insert(flight)
 			.values({
-				...result.flight,
+				...fields,
 				id: crypto.randomUUID(),
-				ownerId: c.var.user.id,
+				ownerId,
+				journeyId: target,
 				createdAt: now,
 				updatedAt: now,
 			})
 			.returning();
+		const rows =
+			journeyId === null
+				? (
+						await db.batch([
+							db.insert(journey).values({
+								id: target,
+								ownerId,
+								createdAt: now,
+								updatedAt: now,
+							}),
+							insert,
+						])
+					)[1]
+				: await insert;
+		const [row] = rows;
 		if (row === undefined) {
 			throw new Error("The insert of the flight gave no row.");
 		}
@@ -125,6 +170,11 @@ export const flightRoutes = new Hono<AppEnv>()
 			.where(and(eq(flight.id, id), eq(flight.ownerId, c.var.user.id)));
 		return row ? c.json(toView(row)) : c.json({ error: "not_found" }, 404);
 	})
+	/**
+	 * Another `journeyId` moves the flight to that journey. No `journeyId`
+	 * takes the flight out of its journey, to a new journey of one leg. The
+	 * journey that the flight leaves is deleted when it is empty.
+	 */
 	.put("/:id", async (c) => {
 		const id = c.req.param("id");
 		if (!UUID.test(id)) {
@@ -134,11 +184,61 @@ export const flightRoutes = new Hono<AppEnv>()
 		if ("issues" in result) {
 			return c.json({ error: "invalid_flight", issues: result.issues }, 400);
 		}
-		const [row] = await drizzle(c.env.DB)
+		const db = drizzle(c.env.DB);
+		const ownerId = c.var.user.id;
+		const [current] = await db
+			.select({ journeyId: flight.journeyId })
+			.from(flight)
+			.where(and(eq(flight.id, id), eq(flight.ownerId, ownerId)));
+		if (current === undefined) {
+			return c.json({ error: "not_found" }, 404);
+		}
+		const { journeyId, ...fields } = result.flight;
+		if (
+			journeyId !== null &&
+			journeyId !== current.journeyId &&
+			!(await ownsJourney(db, ownerId, journeyId))
+		) {
+			return c.json({ error: "invalid_flight", issues: UNKNOWN_JOURNEY }, 400);
+		}
+		const [companion] =
+			journeyId === null
+				? await db
+						.select({ id: flight.id })
+						.from(flight)
+						.where(
+							and(
+								eq(flight.journeyId, current.journeyId),
+								eq(flight.ownerId, ownerId),
+								sql`${flight.id} <> ${id}`,
+							),
+						)
+						.limit(1)
+				: [];
+		// A flight alone in its journey keeps that journey and its title.
+		const leaves = journeyId === null && companion !== undefined;
+		const now = new Date();
+		const target = leaves
+			? crypto.randomUUID()
+			: (journeyId ?? current.journeyId);
+		const update = db
 			.update(flight)
-			.set({ ...result.flight, updatedAt: new Date() })
-			.where(and(eq(flight.id, id), eq(flight.ownerId, c.var.user.id)))
+			.set({ ...fields, journeyId: target, updatedAt: now })
+			.where(and(eq(flight.id, id), eq(flight.ownerId, ownerId)))
 			.returning();
+		const cleanup = deleteEmptyJourneys(db, ownerId);
+		const rows = leaves
+			? (
+					await db.batch([
+						db
+							.insert(journey)
+							.values({ id: target, ownerId, createdAt: now, updatedAt: now }),
+						update,
+						cleanup,
+					])
+				)[1]
+			: (await db.batch([update, cleanup]))[0];
+		const [row] = rows;
 		return row ? c.json(toView(row)) : c.json({ error: "not_found" }, 404);
 	})
 	.delete("/:id", async (c) => {
@@ -146,10 +246,14 @@ export const flightRoutes = new Hono<AppEnv>()
 		if (!UUID.test(id)) {
 			return c.json({ error: "not_found" }, 404);
 		}
-		const deleted = await drizzle(c.env.DB)
-			.delete(flight)
-			.where(and(eq(flight.id, id), eq(flight.ownerId, c.var.user.id)))
-			.returning({ id: flight.id });
+		const db = drizzle(c.env.DB);
+		const [deleted] = await db.batch([
+			db
+				.delete(flight)
+				.where(and(eq(flight.id, id), eq(flight.ownerId, c.var.user.id)))
+				.returning({ id: flight.id }),
+			deleteEmptyJourneys(db, c.var.user.id),
+		]);
 		return deleted.length > 0
 			? c.body(null, 204)
 			: c.json({ error: "not_found" }, 404);

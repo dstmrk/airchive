@@ -59,6 +59,7 @@ function call(
 
 type FlightView = typeof romeTokyo & {
 	id: string;
+	journeyId: string;
 	airlineName: string | null;
 	originAirport: { iata: string; city: string; tz: string; lat: number };
 	destinationAirport: { iata: string; city: string; tz: string };
@@ -76,7 +77,6 @@ async function create(cookie: string, overrides: Record<string, unknown> = {}) {
 describe("the flights API", () => {
 	it("needs a session", async () => {
 		for (const [method, path] of [
-			["GET", "/api/flights"],
 			["POST", "/api/flights"],
 			["GET", "/api/flights/00000000-0000-4000-8000-000000000000"],
 		] as const) {
@@ -110,28 +110,6 @@ describe("the flights API", () => {
 		const flight = await create(alice);
 
 		expect(flight).not.toHaveProperty("ownerId");
-	});
-
-	it("lists the flights of the owner only, the most recent first", async () => {
-		const carol = await signIn(env, "carol@example.com");
-		// No arrival date: the arrival of romeTokyo is in 2024.
-		const day = (departureDate: string, departureTime = "13:05") => ({
-			departureDate,
-			departureTime,
-			arrivalDate: null,
-		});
-		await create(carol, day("2020-01-01"));
-		await create(carol, day("2023-06-01", "08:00"));
-		await create(carol, day("2023-06-01", "18:00"));
-		await create(bob, day("2025-01-01"));
-
-		const response = await call("GET", "/api/flights", carol);
-		const flights = (await response.json()) as FlightView[];
-
-		expect(response.status).toBe(200);
-		expect(flights.map((f) => `${f.departureDate} ${f.departureTime}`)).toEqual(
-			["2023-06-01 18:00", "2023-06-01 08:00", "2020-01-01 13:05"],
-		);
 	});
 
 	it("reads, updates and deletes a flight of the owner", async () => {
@@ -233,6 +211,140 @@ describe("the flights API", () => {
 		});
 
 		expect(response.status).toBe(400);
+	});
+});
+
+describe("the journey of a flight", () => {
+	async function journeyOf(cookie: string, journeyId: string) {
+		const response = await call("GET", `/api/journeys/${journeyId}`, cookie);
+		return response.status === 200
+			? ((await response.json()) as { flights: FlightView[] })
+			: null;
+	}
+
+	it("starts a new journey for a flight with no journey", async () => {
+		const first = await create(alice);
+		const second = await create(alice, { journeyId: null });
+
+		expect(first.journeyId).toMatch(/^[0-9a-f-]{36}$/);
+		expect(second.journeyId).not.toBe(first.journeyId);
+	});
+
+	it("adds a flight to a journey of the owner", async () => {
+		const first = await create(alice);
+		const second = await create(alice, {
+			origin: "NRT",
+			destination: "HND",
+			journeyId: first.journeyId,
+		});
+
+		expect(second.journeyId).toBe(first.journeyId);
+		expect((await journeyOf(alice, first.journeyId))?.flights).toHaveLength(2);
+	});
+
+	it("refuses the journey of another person, as a journey that does not exist", async () => {
+		const other = await create(bob);
+		for (const journeyId of [
+			other.journeyId,
+			"00000000-0000-4000-8000-000000000000",
+		]) {
+			const response = await call("POST", "/api/flights", alice, {
+				...romeTokyo,
+				journeyId,
+			});
+
+			expect(response.status).toBe(400);
+			expect(await response.json()).toMatchObject({
+				issues: [{ path: ["journeyId"], message: "unknown_journey" }],
+			});
+		}
+		expect((await journeyOf(bob, other.journeyId))?.flights).toHaveLength(1);
+	});
+
+	it("refuses a move to the journey of another person", async () => {
+		const mine = await create(alice);
+		const other = await create(bob);
+
+		const response = await call("PUT", `/api/flights/${mine.id}`, alice, {
+			...romeTokyo,
+			journeyId: other.journeyId,
+		});
+
+		expect(response.status).toBe(400);
+		expect((await journeyOf(bob, other.journeyId))?.flights).toHaveLength(1);
+	});
+
+	it("moves a flight to another journey and deletes the empty journey", async () => {
+		const target = await create(alice);
+		const moved = await create(alice);
+
+		const response = await call("PUT", `/api/flights/${moved.id}`, alice, {
+			...romeTokyo,
+			journeyId: target.journeyId,
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			journeyId: target.journeyId,
+		});
+		expect(await journeyOf(alice, moved.journeyId)).toBeNull();
+		expect((await journeyOf(alice, target.journeyId))?.flights).toHaveLength(2);
+	});
+
+	it("takes a flight out of its journey to a new journey", async () => {
+		const first = await create(alice);
+		const second = await create(alice, { journeyId: first.journeyId });
+
+		const response = await call("PUT", `/api/flights/${second.id}`, alice, {
+			...romeTokyo,
+			journeyId: null,
+		});
+		const updated = (await response.json()) as FlightView;
+
+		expect(updated.journeyId).not.toBe(first.journeyId);
+		expect((await journeyOf(alice, first.journeyId))?.flights).toHaveLength(1);
+		expect((await journeyOf(alice, updated.journeyId))?.flights).toHaveLength(
+			1,
+		);
+	});
+
+	it("keeps the journey and its title for a flight alone in it", async () => {
+		const flight = await create(alice);
+		await call("PATCH", `/api/journeys/${flight.journeyId}`, alice, {
+			title: "Japan",
+		});
+
+		const response = await call("PUT", `/api/flights/${flight.id}`, alice, {
+			...romeTokyo,
+			journeyId: null,
+		});
+
+		expect(await response.json()).toMatchObject({
+			journeyId: flight.journeyId,
+		});
+		expect(await journeyOf(alice, flight.journeyId)).toMatchObject({
+			title: "Japan",
+		});
+	});
+
+	it("deletes the journey with its last flight, and keeps a journey with other flights", async () => {
+		const first = await create(alice);
+		const second = await create(alice, { journeyId: first.journeyId });
+
+		await call("DELETE", `/api/flights/${second.id}`, alice);
+		expect((await journeyOf(alice, first.journeyId))?.flights).toHaveLength(1);
+
+		await call("DELETE", `/api/flights/${first.id}`, alice);
+		expect(await journeyOf(alice, first.journeyId)).toBeNull();
+	});
+
+	it("does not delete an empty journey of another person", async () => {
+		const other = await create(bob);
+		const mine = await create(alice);
+
+		await call("DELETE", `/api/flights/${mine.id}`, alice);
+
+		expect(await journeyOf(bob, other.journeyId)).not.toBeNull();
 	});
 });
 

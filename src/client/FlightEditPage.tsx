@@ -27,12 +27,22 @@ function FlightEditor() {
 
 	return (
 		<main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
-			<Link
-				to="/"
-				className="text-muted-foreground text-sm underline underline-offset-4"
-			>
-				{text.backToArchive}
-			</Link>
+			{flight ? (
+				<Link
+					to="/journeys/$journeyId"
+					params={{ journeyId: flight.journeyId }}
+					className="text-muted-foreground text-sm underline underline-offset-4"
+				>
+					{text.backToJourney}
+				</Link>
+			) : (
+				<Link
+					to="/"
+					className="text-muted-foreground text-sm underline underline-offset-4"
+				>
+					{text.backToArchive}
+				</Link>
+			)}
 			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
 			{isError && <p role="alert">{text.flightNotFound}</p>}
 			{flight && (
@@ -40,8 +50,11 @@ function FlightEditor() {
 					<h1 className="font-semibold text-2xl">{text.editFlightTitle}</h1>
 					<FlightForm
 						flight={flight}
-						onSaved={() =>
-							navigate({ to: "/flights/$flightId", params: { flightId } })
+						onSaved={(saved) =>
+							navigate({
+								to: "/journeys/$journeyId",
+								params: { journeyId: saved.journeyId },
+							})
 						}
 					/>
 					<button

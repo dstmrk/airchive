@@ -38,8 +38,8 @@ export function NewFlightPage() {
 					initialAirports={imported?.pass.airports}
 					onSaved={(flight) =>
 						navigate({
-							to: "/flights/$flightId",
-							params: { flightId: flight.id },
+							to: "/journeys/$journeyId",
+							params: { journeyId: flight.journeyId },
 						})
 					}
 				/>
