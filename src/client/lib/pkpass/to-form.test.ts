@@ -145,6 +145,99 @@ describe("passToForm", () => {
 		});
 	});
 
+	describe("the free fields of the time and the class", () => {
+		/** The structure of a real pass, with no semantic tags and labels in Italian. */
+		const freePass = (fields: Record<string, unknown>[]) => ({
+			barcodes: [{ message: BCBP.replace("133Y", "133M") }],
+			boardingPass: {
+				transitType: "PKTransitTypeAir",
+				auxiliaryFields: [
+					{ key: "date", label: "Data di partenza", value: "12MAY24" },
+					{ key: "boarding", label: "Imbarco", value: "12:35" },
+					{ key: "gateCloses", label: "Chiusura imbarco", value: "12:50" },
+				],
+				backFields: fields,
+			},
+		});
+
+		const valuesOf = (pass: Record<string, unknown>) => {
+			const result = passToForm(pass, options);
+			return "values" in result ? result.values : {};
+		};
+
+		it("reads the departure time and the class, and not the time of the boarding", () => {
+			const pass = freePass([
+				{ key: "class", label: "Classe", value: "Economy" },
+				{ key: "fareInfo", label: "Tariffa", value: "BUSINESS SAVER" },
+				{
+					key: "departureTime",
+					label: "Orario di partenza previsto",
+					value: "13:05",
+				},
+			]);
+
+			expect(passToForm(pass, options)).toMatchObject({
+				values: { departureTime: "13:05", cabinClass: "economy" },
+			});
+		});
+
+		it("gives no departure time when the pass has only the boarding", () => {
+			expect(valuesOf(freePass([]))).not.toHaveProperty("departureTime");
+		});
+
+		it.each([
+			["DEPARTS", "9:05", "09:05"],
+			["Departure time", "13.05", "13:05"],
+			["Ora di partenza", "25:00", undefined],
+			["Departure", "1:05 PM", undefined],
+		])("reads the label %s with %s as %s", (label, value, expected) => {
+			const pass = freePass([{ key: "x", label, value }]);
+
+			expect(valuesOf(pass).departureTime).toBe(expected);
+		});
+
+		it.each([
+			["Economy", "economy"],
+			["ECONOMY CLASS", "economy"],
+			["Economica", "economy"],
+			["Premium Economy", "premium_economy"],
+			["Business", "business"],
+			["First", "first"],
+			["Prima", "first"],
+			["Comfort", undefined],
+			["M", undefined],
+		])("reads the class %s as %s", (value, expected) => {
+			const pass = freePass([{ key: "cabin", label: "Cabin", value }]);
+
+			expect(valuesOf(pass).cabinClass).toBe(expected);
+		});
+
+		it("prefers the class of the barcode to the free field", () => {
+			const pass = {
+				...freePass([{ key: "class", label: "Class", value: "First" }]),
+				barcodes: [{ message: BCBP }],
+			};
+
+			expect(passToForm(pass, options)).toMatchObject({
+				values: { cabinClass: "economy" },
+			});
+		});
+
+		it("prefers the semantic time to the free field", () => {
+			const pass = {
+				...semanticPass,
+				boardingPass: {
+					transitType: "PKTransitTypeAir",
+					backFields: [{ key: "departureTime", label: "STD", value: "08:00" }],
+				},
+			};
+
+			expect(passToForm(pass, options)).toMatchObject({
+				values: { departureTime: "13:05" },
+			});
+		});
+	});
+
 	it("prefers the semantic tags to the barcode", () => {
 		const pass = {
 			...semanticPass,

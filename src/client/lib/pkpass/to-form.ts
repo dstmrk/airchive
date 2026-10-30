@@ -1,4 +1,8 @@
-import { SEAT, splitFlightDesignator } from "../../../shared/flight.ts";
+import {
+	type CabinClass,
+	SEAT,
+	splitFlightDesignator,
+} from "../../../shared/flight.ts";
 import { dateFromJulian, parseBcbp } from "../bcbp.ts";
 import { parsePassColor } from "../color.ts";
 import type { FlightFormValues } from "../flight-form.ts";
@@ -135,6 +139,44 @@ function fieldValue(fields: PassField[], pattern: RegExp): string | undefined {
 		?.value;
 }
 
+/** The first field with a key or a label of the pattern and a value that `read` accepts. */
+function readField<T>(
+	fields: PassField[],
+	pattern: RegExp,
+	read: (value: string) => T | undefined,
+): T | undefined {
+	for (const field of fields) {
+		if (pattern.test(field.key) || pattern.test(field.label)) {
+			const value = read(field.value);
+			if (value !== undefined) {
+				return value;
+			}
+		}
+	}
+	return undefined;
+}
+
+/** "9:05" or "09.05" is "09:05". A time with AM or PM gives nothing. */
+function timeOf(value: string): string | undefined {
+	const [, hour, minute] = /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.exec(value) ?? [];
+	return hour && minute ? `${hour.padStart(2, "0")}:${minute}` : undefined;
+}
+
+/** The cabin from the text of the pass, in English or in Italian. Another text gives nothing. */
+function cabinOf(value: string): CabinClass | undefined {
+	const cabin = value.toLowerCase();
+	if (/\bpremium\b/.test(cabin)) {
+		return "premium_economy";
+	}
+	if (/\bbusiness\b/.test(cabin)) {
+		return "business";
+	}
+	if (/\b(first|prima)\b/.test(cabin)) {
+		return "first";
+	}
+	return /\beconom/.test(cabin) ? "economy" : undefined;
+}
+
 function seatOf(value: unknown): string | undefined {
 	const seat = text(value, 4)?.toUpperCase();
 	return seat && SEAT.test(seat) ? seat : undefined;
@@ -217,14 +259,16 @@ export function passToForm(
 		origin,
 		destination,
 		departureDate,
-		departureTime: departure?.time,
+		// The boarding and the closure of the gate have other labels: only the departure matches.
+		departureTime:
+			departure?.time ?? readField(all, /depart|partenza|^std$|^etd$/i, timeOf),
 		arrivalDate: arrival?.date,
 		arrivalTime: arrival?.time,
 		seat:
 			seatOf(record(seats[0])?.seatIdentifier) ??
 			bcbp?.seat ??
 			seatOf(fieldValue(all, /seat/i)),
-		cabinClass: bcbp?.cabinClass ?? undefined,
+		cabinClass: bcbp?.cabinClass ?? readField(all, /class|cabin/i, cabinOf),
 		passengerName:
 			text(semanticName, 100) ??
 			bcbp?.passengerName ??
