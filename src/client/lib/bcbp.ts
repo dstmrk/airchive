@@ -1,4 +1,4 @@
-import type { CabinClass } from "../../shared/flight.ts";
+import { type CabinClass, SEAT } from "../../shared/flight.ts";
 
 /**
  * The fields of the first leg of an IATA BCBP barcode (Resolution 792). Each
@@ -46,10 +46,10 @@ function readName(raw: string): string {
 	return first ? `${first} ${family.trim()}` : family.trim();
 }
 
-/** "014A" is "14A". An infant ("INF") or an empty seat gives null. */
+/** "014A" is "14A", "INF" stays "INF". An empty seat gives null. */
 function readSeat(raw: string): string | null {
-	const match = /^0*(\d{1,3}[A-Z])$/.exec(raw);
-	return match?.[1] ?? null;
+	const seat = raw.replace(/^0+(?=\d)/, "");
+	return SEAT.test(seat) ? seat : null;
 }
 
 export function parseBcbp(text: string): BcbpLeg | null {

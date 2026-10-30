@@ -1,4 +1,4 @@
-import { splitFlightDesignator } from "../../../shared/flight.ts";
+import { SEAT, splitFlightDesignator } from "../../../shared/flight.ts";
 import { dateFromJulian, parseBcbp } from "../bcbp.ts";
 import { parsePassColor } from "../color.ts";
 import type { FlightFormValues } from "../flight-form.ts";
@@ -137,7 +137,7 @@ function fieldValue(fields: PassField[], pattern: RegExp): string | undefined {
 
 function seatOf(value: unknown): string | undefined {
 	const seat = text(value, 4)?.toUpperCase();
-	return seat && /^\d{1,3}[A-Z]$/.test(seat) ? seat : undefined;
+	return seat && SEAT.test(seat) ? seat : undefined;
 }
 
 export function passToForm(

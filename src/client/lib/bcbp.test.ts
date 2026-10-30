@@ -67,9 +67,13 @@ describe("parseBcbp", () => {
 		expect(parseBcbp(bcbp({ compartment }))?.cabinClass).toBe(expected);
 	});
 
+	it("reads the seat of an infant with no seat as INF", () => {
+		expect(parseBcbp(bcbp({ seat: "INF " }))?.seat).toBe("INF");
+	});
+
 	it.each([
-		["a seat for an infant", "INF"],
-		["no seat", "   "],
+		["no seat", "    "],
+		["a seat with no letter", "0012"],
 	])("gives no seat for %s", (_label, seat) => {
 		expect(parseBcbp(bcbp({ seat }))?.seat).toBeNull();
 	});

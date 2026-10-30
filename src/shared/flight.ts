@@ -54,6 +54,9 @@ const localTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const AIRLINE_CODE = /^(?=[A-Z0-9]*[A-Z])[A-Z0-9]{2}[A-Z]?$/;
 const AIRPORT_CODE = /^[A-Z]{3}$/;
 
+/** A row and a letter ("14A"), or "INF": an infant on the lap of an adult has no seat. */
+export const SEAT = /^(\d{1,3}[A-Z]|INF)$/;
+
 export const flightInputSchema = z
 	.strictObject({
 		airlineCode: upper(AIRLINE_CODE),
@@ -67,7 +70,7 @@ export const flightInputSchema = z
 		departureTime: optional(localTime),
 		arrivalDate: optional(isoDate),
 		arrivalTime: optional(localTime),
-		seat: optional(upper(/^\d{1,3}[A-Z]$/)),
+		seat: optional(upper(SEAT)),
 		cabinClass: optional(z.enum(CABIN_CLASSES)),
 		passengerName: optional(z.string().trim().max(100)),
 		bookingReference: optional(upper(/^[A-Z0-9]{5,8}$/)),
