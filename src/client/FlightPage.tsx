@@ -22,6 +22,7 @@ import { flightTiming } from "./lib/flight-time.ts";
 import { distanceKm } from "./lib/great-circle.ts";
 import { useFlight } from "./lib/queries.ts";
 import { inCabin, isTorn } from "./lib/replay.ts";
+import { replayMinute } from "./lib/terminator.ts";
 
 /** MapLibre is large: only the page of a flight loads it. */
 const FlightMap = lazy(() => import("./components/FlightMap.tsx"));
@@ -225,6 +226,11 @@ function FlightReplay({
 						origin={origin}
 						destination={destination}
 						progress={started ? moment.fraction : null}
+						instant={
+							started
+								? replayMinute(timing.departure, timing.durationMs, state.t)
+								: null
+						}
 						cabin={cabin}
 					/>
 				</Suspense>
