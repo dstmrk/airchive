@@ -8,6 +8,13 @@
       "when": 1793309544511,
       "tag": "0000_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793344900166,
+      "tag": "0001_flight",
+      "breakpoints": true
     }
   ]
 }

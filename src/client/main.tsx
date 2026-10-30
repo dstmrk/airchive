@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -12,12 +13,15 @@ if (root === null) {
 }
 
 const locale = pickLocale(navigator.languages);
+const queryClient = new QueryClient();
 document.documentElement.lang = locale;
 
 createRoot(root).render(
 	<StrictMode>
 		<I18nProvider locale={locale}>
-			<RouterProvider router={router} />
+			<QueryClientProvider client={queryClient}>
+				<RouterProvider router={router} />
+			</QueryClientProvider>
 		</I18nProvider>
 	</StrictMode>,
 );

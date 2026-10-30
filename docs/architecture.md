@@ -43,7 +43,7 @@ These constraints control all the decisions in this document:
 | Lint and format | Biome | One tool in the place of ESLint and Prettier. |
 
 Each package arrives with the slice that uses it. The authentication added Better Auth
-and Drizzle. mapcn and TanStack Query are not installed yet.
+and Drizzle. The flight table added Zod and TanStack Query. mapcn is not installed yet.
 
 The structure of the repository comes from Yume (`dstmrk/yume`). The map component comes
 from prezzi-carburante (`dstmrk/prezzi-carburante`). The rules of the process come from
@@ -112,6 +112,26 @@ The three ways fill **one form**. The person examines the data, completes the mi
 items and saves. Thus the validation is in one place. The manual input is the first
 slice, because it needs no parser.
 
+### 3.1.1 The fields of a flight
+
+`src/shared/flight.ts` holds one Zod schema. The form and the API both apply it.
+
+| Field | Required | Rule |
+|---|---|---|
+| `airlineCode`, `flightNumber` | yes | The form has one field, for example `AZ 784`. The code is IATA (2 characters, one letter or more) or ICAO (3 letters). The number has no leading zeros. |
+| `airlineName` | no | Text. A code goes to a new airline over time (`AZ` was Alitalia, it is ITA since 2021), thus the name stays on the flight. |
+| `origin`, `destination` | yes | IATA codes of the dataset of paragraph 3.4. They are different. |
+| `departureDate` | yes | The local day of the boarding pass, from 1950. |
+| `departureTime`, `arrivalDate`, `arrivalTime` | no | Local "wall clock" times of each airport. The arrival is not before the departure date. |
+| `seat`, `cabinClass`, `passengerName`, `bookingReference` | no | `cabinClass` is `economy`, `premium_economy`, `business` or `first`. |
+
+The times are local times, as the boarding pass gives them, not UTC. The time zone of
+each airport converts them when the replay of paragraph 5.6 needs UTC. A barcode gives a
+date and no time, thus the date of a flight stays correct with no time.
+
+The schema keeps no field for the real times or a real track yet. The slice that uses
+them adds them.
+
 ### 3.2 The private data
 
 A boarding pass holds the name, the booking reference and sometimes the number of a
@@ -132,9 +152,29 @@ condition. A person reads and writes only the rows of their own account.
 
 ### 3.4 The airports
 
-The coordinates of the airports come from **OurAirports**, a data set in the public
-domain. The repository holds a reduced copy of that data set. The application needs no
-API for an airport.
+`src/server/airports/airports.json` holds approximately 9,400 airports: the IATA code,
+the name, the city, the country, the coordinates and the IANA time zone. `npm run
+airports:build` writes it from two sources:
+
+| Source | Licence | Role |
+|---|---|---|
+| mwgg/Airports | MIT | The base. It gives the time zone, and it keeps the closed airports, for example Berlin Tegel (TXL). |
+| OurAirports | Public domain | It adds each code that mwgg does not have. It removes the closed airports, thus it cannot be the base. |
+
+The time zone of an airport of OurAirports comes from its coordinates, with
+`@photostructure/tz-lookup` in the script only. The application does not load that
+package.
+
+**The file never removes a code.** A saved flight holds only the codes of its airports.
+The script reads the previous file and keeps each of its codes. A flight with a code
+that is not in the file cannot be saved.
+
+The Worker reads the file one time, when the isolate starts. `GET /api/airports?q=`
+gives the 10 best airports for a text: the exact code, then a city that starts with the
+text, then a word of the name or of the city. The route needs no session, because the
+data is public. The client does not load the file: on a telephone, 200 KB of data for
+three letters is too much. The startup of the Worker was approximately 60 ms of CPU on a
+local machine, with the file. The limit of Cloudflare is 1 second.
 
 ## 4. Authentication
 
@@ -306,15 +346,20 @@ src/
     main.tsx       the entry point of the client
     router.tsx     the routes of the client
     lib/           the logic of the client, each file with a test file
+    components/    the components that more than one page uses
   server/          the Worker
+    airports/      the dataset of the airports and its search
     db/schema.ts   the tables, with Drizzle
     test/d1.ts     a real D1 database for the tests
     app.ts         the routes of Hono
     auth.ts        Better Auth for one request
+    flights.ts     the routes of /api/flights
+    session.ts     the guard requireSession
     email.ts       the email of the magic link, with the API of Resend
     index.ts       the entry point of the Worker
   shared/          the code of the client and of the Worker
 drizzle/           the SQL migrations, from drizzle-kit
+scripts/airports/  the script that writes airports.json
 index.html         the page of the client
 wrangler.jsonc     the configuration of the Worker and of its bindings
 worker-configuration.d.ts   the types of `Env`, from `wrangler types`

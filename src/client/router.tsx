@@ -4,7 +4,9 @@ import {
 	createRouter,
 	Outlet,
 } from "@tanstack/react-router";
+import { FlightPage } from "./FlightPage.tsx";
 import { HomePage } from "./HomePage.tsx";
+import { NewFlightPage } from "./NewFlightPage.tsx";
 import { NotFoundPage } from "./NotFoundPage.tsx";
 import { SignInPage } from "./SignInPage.tsx";
 
@@ -36,8 +38,25 @@ const signInRoute = createRoute({
 	component: SignInPage,
 });
 
+const newFlightRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/flights/new",
+	component: NewFlightPage,
+});
+
+const flightRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/flights/$flightId",
+	component: FlightPage,
+});
+
 export const router = createRouter({
-	routeTree: rootRoute.addChildren([homeRoute, signInRoute]),
+	routeTree: rootRoute.addChildren([
+		homeRoute,
+		signInRoute,
+		newFlightRoute,
+		flightRoute,
+	]),
 });
 
 declare module "@tanstack/react-router" {

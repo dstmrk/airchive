@@ -1,16 +1,8 @@
 import { Hono } from "hono";
-import { createMiddleware } from "hono/factory";
+import { airports } from "./airports/index.ts";
 import { createAuth } from "./auth.ts";
-
-type SessionUser = {
-	id: string;
-	email: string;
-};
-
-type AppEnv = {
-	Bindings: Env;
-	Variables: { user: SessionUser };
-};
+import { flightRoutes } from "./flights.ts";
+import { type AppEnv, requireSession } from "./session.ts";
 
 /**
  * The HTTP application of the Worker. Each route of the API starts with
@@ -48,26 +40,18 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
 	return createAuth(c.env).handler(c.req.raw);
 });
 
-/**
- * The guard of each route that needs a session. With no valid session it gives
- * 401. With a session it gives the user to the route in `c.var.user`.
- */
-const requireSession = createMiddleware<AppEnv>(async (c, next) => {
-	if (!c.env.BETTER_AUTH_SECRET) {
-		return c.json({ error: "unauthorized" }, 401);
-	}
-	const session = await createAuth(c.env).api.getSession({
-		headers: c.req.raw.headers,
-	});
-	if (session === null) {
-		return c.json({ error: "unauthorized" }, 401);
-	}
-	c.set("user", { id: session.user.id, email: session.user.email });
-	await next();
-});
-
 /** The person of the session. The client reads it to show the signed-in state. */
 app.get("/api/me", requireSession, (c) => c.json(c.var.user));
+
+/**
+ * The search of the airports for the form. The data is public, thus the route
+ * needs no session. Refer to paragraph 3.4 of `docs/architecture.md`.
+ */
+app.get("/api/airports", (c) =>
+	c.json(airports.search(c.req.query("q") ?? "")),
+);
+
+app.route("/api/flights", flightRoutes);
 
 /**
  * The asset handler sends to the Worker only the paths of `run_worker_first`

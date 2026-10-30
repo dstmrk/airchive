@@ -108,3 +108,44 @@ export const rateLimit = sqliteTable(
 	},
 	(table) => [uniqueIndex("rate_limit_key_idx").on(table.key)],
 );
+
+/**
+ * A flight of the archive of one person. The times are local times of the
+ * airports, as the boarding pass gives them. The airports are IATA codes of
+ * `src/server/airports/airports.json`, and that file never removes a code.
+ * Refer to paragraph 3 of `docs/architecture.md`.
+ */
+export const flight = sqliteTable(
+	"flight",
+	{
+		id: text("id").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		airlineCode: text("airline_code").notNull(),
+		flightNumber: text("flight_number").notNull(),
+		airlineName: text("airline_name"),
+		origin: text("origin").notNull(),
+		destination: text("destination").notNull(),
+		departureDate: text("departure_date").notNull(),
+		departureTime: text("departure_time"),
+		arrivalDate: text("arrival_date"),
+		arrivalTime: text("arrival_time"),
+		seat: text("seat"),
+		cabinClass: text("cabin_class", {
+			enum: ["economy", "premium_economy", "business", "first"],
+		}),
+		passengerName: text("passenger_name"),
+		bookingReference: text("booking_reference"),
+		createdAt: timestamp("created_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: timestamp("updated_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	// The archive lists the flights of one owner by date.
+	(table) => [
+		index("flight_owner_date_idx").on(table.ownerId, table.departureDate),
+	],
+);
