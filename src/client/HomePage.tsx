@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Wordmark } from "./brand/Mark.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
 import { authClient } from "./lib/auth-client.ts";
 import { formatDate } from "./lib/format.ts";
@@ -14,8 +15,8 @@ export function HomePage() {
 	if (!session) {
 		return (
 			<main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-2 px-4">
-				<h1 className="font-semibold text-3xl tracking-tight">
-					{text.appName}
+				<h1 aria-label={text.appName}>
+					<Wordmark size="large" />
 				</h1>
 				<p className="text-muted-foreground">{text.tagline}</p>
 				<Link to="/sign-in" className="mt-6 underline underline-offset-4">
@@ -27,10 +28,8 @@ export function HomePage() {
 
 	return (
 		<main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8">
-			<header className="flex items-baseline justify-between gap-2">
-				<h1 className="font-semibold text-2xl tracking-tight">
-					{text.archiveTitle}
-				</h1>
+			<header className="flex items-center justify-between gap-2">
+				<Wordmark size="small" />
 				<button
 					type="button"
 					onClick={() => authClient.signOut()}
@@ -39,6 +38,9 @@ export function HomePage() {
 					{text.signOut}
 				</button>
 			</header>
+			<h1 className="font-semibold text-2xl tracking-tight">
+				{text.archiveTitle}
+			</h1>
 			<Link
 				to="/flights/new"
 				className="flex h-11 items-center justify-center rounded-md bg-foreground px-4 font-medium text-background"
