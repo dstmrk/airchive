@@ -4,6 +4,7 @@ import { arrivalDayOffset, passDate, passView } from "./pass.ts";
 
 const flight: FlightView = {
 	id: "1",
+	journeyId: "j1",
 	airlineCode: "AZ",
 	flightNumber: "784",
 	airlineName: "ITA Airways",

@@ -9,7 +9,6 @@ import {
 } from "./terminator.ts";
 
 const RAD = Math.PI / 180;
-const MINUTE = 60_000;
 
 /** The altitude of the sun in degrees, from the subsolar point. */
 function altitude(instant: number, [lon, lat]: LonLat): number {
@@ -127,21 +126,19 @@ describe("darkArea", () => {
 
 describe("replayMinute", () => {
 	const departure = Date.UTC(2025, 5, 21, 22, 15);
-	const hours = 10 * 60 * MINUTE;
 
-	it("is the departure at the start and the arrival at the end", () => {
-		expect(replayMinute(departure, hours, 0)).toBe(departure);
-		expect(replayMinute(departure, hours, 1)).toBe(departure + hours);
+	it("keeps an instant at the start of a minute", () => {
+		expect(replayMinute(departure)).toBe(departure);
 	});
 
 	it("keeps the same value in one simulated minute", () => {
-		const a = replayMinute(departure, hours, 0.0001);
-		const b = replayMinute(departure, hours, 0.0015);
-		expect(a).toBe(b);
-		expect((a ?? 1) % MINUTE).toBe(0);
+		const a = replayMinute(departure + 3_000);
+		const b = replayMinute(departure + 59_000);
+		expect(a).toBe(departure);
+		expect(b).toBe(departure);
 	});
 
 	it("gives null with no departure time", () => {
-		expect(replayMinute(null, hours, 0.5)).toBeNull();
+		expect(replayMinute(null)).toBeNull();
 	});
 });

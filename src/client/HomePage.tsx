@@ -3,7 +3,8 @@ import { Wordmark } from "./brand/Mark.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
 import { authClient } from "./lib/auth-client.ts";
 import { formatDate } from "./lib/format.ts";
-import { useFlights } from "./lib/queries.ts";
+import { journeyChains, journeyTitle } from "./lib/journey.ts";
+import { useJourneys } from "./lib/queries.ts";
 
 export function HomePage() {
 	const text = useText();
@@ -55,9 +56,11 @@ export function HomePage() {
 	);
 }
 
+/** The journeys of the person, the most recent first. */
 function Archive() {
 	const text = useText();
-	const { data: flights, isPending, isError } = useFlights(true);
+	const { data: journeys, isPending, isError } = useJourneys();
+	const locale = document.documentElement.lang;
 
 	if (isPending) {
 		return <p className="text-muted-foreground">{text.loading}</p>;
@@ -65,40 +68,47 @@ function Archive() {
 	if (isError) {
 		return <p role="alert">{text.archiveLoadFailed}</p>;
 	}
-	if (flights.length === 0) {
+	if (journeys.length === 0) {
 		return <p className="text-muted-foreground">{text.archiveEmpty}</p>;
 	}
 	return (
 		<ul className="flex flex-col divide-y divide-foreground/10">
-			{flights.map((flight) => (
-				<li key={flight.id}>
-					<Link
-						to="/flights/$flightId"
-						params={{ flightId: flight.id }}
-						className="flex items-center justify-between gap-3 py-3"
-					>
-						<span className="flex flex-col">
-							<span className="font-mono font-semibold text-lg">
-								{flight.origin} → {flight.destination}
+			{journeys.map((journey) => {
+				const first = journey.flights[0];
+				return (
+					<li key={journey.id}>
+						<Link
+							to="/journeys/$journeyId"
+							params={{ journeyId: journey.id }}
+							className="flex items-center justify-between gap-3 py-3"
+						>
+							<span className="flex min-w-0 flex-col">
+								<span className="truncate font-medium">
+									{journeyTitle(journey, text.journeyDefaultTitle)}
+								</span>
+								<span className="font-mono font-semibold text-lg">
+									{journeyChains(journey.flights)
+										.map((chain) => chain.join(" → "))
+										.join(" · ")}
+								</span>
 							</span>
-							<span className="text-muted-foreground text-sm">
-								{flight.originAirport?.city} – {flight.destinationAirport?.city}
-							</span>
-						</span>
-						<span className="flex flex-col items-end text-sm">
-							<span className="font-mono">
-								{flight.airlineCode} {flight.flightNumber}
-							</span>
-							<span className="text-muted-foreground">
-								{formatDate(
-									flight.departureDate,
-									document.documentElement.lang,
+							<span className="flex shrink-0 flex-col items-end text-sm">
+								{/* The chain of the codes already shows a journey of more legs. */}
+								{journey.flights.length === 1 && first && (
+									<span className="font-mono">
+										{first.airlineCode} {first.flightNumber}
+									</span>
+								)}
+								{first && (
+									<span className="text-muted-foreground">
+										{formatDate(first.departureDate, locale)}
+									</span>
 								)}
 							</span>
-						</span>
-					</Link>
-				</li>
-			))}
+						</Link>
+					</li>
+				);
+			})}
 		</ul>
 	);
 }

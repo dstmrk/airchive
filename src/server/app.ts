@@ -5,6 +5,7 @@ import { createAuth } from "./auth.ts";
 import * as schema from "./db/schema.ts";
 import { describeError } from "./errors.ts";
 import { flightRoutes } from "./flights.ts";
+import { journeyRoutes } from "./journeys.ts";
 import { type AppEnv, requireSession } from "./session.ts";
 
 /**
@@ -74,6 +75,7 @@ app.get("/api/airports", (c) =>
 );
 
 app.route("/api/flights", flightRoutes);
+app.route("/api/journeys", journeyRoutes);
 
 /**
  * An error that no route handles. Hono writes the whole error by default, and

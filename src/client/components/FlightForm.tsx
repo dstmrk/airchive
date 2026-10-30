@@ -18,7 +18,9 @@ import {
 	issuesByField,
 	toPayload,
 } from "../lib/flight-form.ts";
-import { useSaveFlight } from "../lib/queries.ts";
+import { formatDate } from "../lib/format.ts";
+import { journeyTitle, suggestJourney } from "../lib/journey.ts";
+import { useJourneys, useSaveFlight } from "../lib/queries.ts";
 import { AirportInput } from "./AirportInput.tsx";
 
 const ISSUE_TEXT: Record<IssueCode, keyof Messages> = {
@@ -26,6 +28,8 @@ const ISSUE_TEXT: Record<IssueCode, keyof Messages> = {
 	same_airport: "issueSameAirport",
 	arrival_before_departure: "issueArrivalBeforeDeparture",
 	unknown_airport: "issueUnknownAirport",
+	unknown_journey: "issueUnknownJourney",
+	overlaps_leg: "issueOverlapsLeg",
 };
 
 const CABIN_TEXT: Record<(typeof CABIN_CLASSES)[number], keyof Messages> = {
@@ -60,6 +64,15 @@ export function FlightForm({
 	const [issues, setIssues] = useState<FieldIssues>({});
 	const [failed, setFailed] = useState(false);
 	const save = useSaveFlight(flight?.id);
+	const { data: journeys = [] } = useJourneys();
+	// Until the person chooses, a new flight goes to the journey that it continues.
+	const [journeyChosen, setJourneyChosen] = useState(false);
+	const suggestion =
+		!flight && !journeyChosen && values.journeyId === ""
+			? suggestJourney(journeys, values)
+			: null;
+	const journeyId = values.journeyId || suggestion?.id || "";
+	const locale = document.documentElement.lang;
 
 	// A change of a field removes its issue: the old message no longer describes the value.
 	const set = (field: FormField) => (value: string) => {
@@ -74,7 +87,7 @@ export function FlightForm({
 	function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setFailed(false);
-		const result = toPayload(values);
+		const result = toPayload({ ...values, journeyId });
 		if ("issues" in result) {
 			setIssues(result.issues);
 			return;
@@ -192,6 +205,35 @@ export function FlightForm({
 			{textInput("bookingReference", text.fieldBookingReference, {
 				autoCapitalize: "characters",
 			})}
+			{/* With no journey yet, the only choice is a new journey: the field is not necessary. */}
+			{journeys.length > 0 &&
+				field("journeyId", text.fieldJourney, ({ id, invalid }) => (
+					<>
+						<select
+							id={id}
+							aria-invalid={invalid}
+							aria-describedby={`${id}-hint`}
+							value={journeyId}
+							onChange={(event) => {
+								setJourneyChosen(true);
+								set("journeyId")(event.target.value);
+							}}
+							className={INPUT}
+						>
+							<option value="">{text.journeyNew}</option>
+							{journeys.map((journey) => (
+								<option key={journey.id} value={journey.id}>
+									{journeyTitle(journey, text.journeyDefaultTitle)}
+									{journey.flights[0] &&
+										` · ${formatDate(journey.flights[0].departureDate, locale)}`}
+								</option>
+							))}
+						</select>
+						<p id={`${id}-hint`} className="text-muted-foreground text-sm">
+							{suggestion ? text.fieldJourneySuggested : text.fieldJourneyHint}
+						</p>
+					</>
+				))}
 			<button
 				type="submit"
 				disabled={save.isPending}

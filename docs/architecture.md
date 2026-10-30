@@ -255,6 +255,50 @@ data is public. The client does not load the file: on a telephone, 200 KB of dat
 three letters is too much. The startup of the Worker was approximately 60 ms of CPU on a
 local machine, with the file. The limit of Cloudflare is 1 second.
 
+### 3.5 The journeys
+
+A **journey** is the flights from an origin to a final destination, with the
+connections between them. TRN → FCO → AUH → NRT is one journey with three flights. The
+return is a different journey. "Relive your flight" (paragraph 5.6) shows each leg of
+one journey.
+
+- The table `journey` has `owner_id` and an optional `title`. Each flight has a
+  `journey_id`, and the value is necessary. A journey holds one flight or more.
+- A flight with no `journeyId` starts a new journey. The journey of another person gives
+  400 with `unknown_journey`, as a journey that does not exist.
+- `PUT` with another `journeyId` moves the flight. `PUT` with no `journeyId` moves the
+  flight to a new journey. A flight that is alone in its journey keeps that journey and
+  its title.
+- After each change of a flight, one statement deletes each empty journey of the owner.
+- Two legs of one journey must not be in the air at the same time. The API gives 400 with
+  `overlaps_leg` on `departureTime`. Only two legs with a departure time and an arrival
+  time each give this check. `src/shared/zoned-time.ts` gives the instants to the
+  client and to the Worker.
+- The API gives the legs in order. The chain of the airports decides first: the next leg
+  departs from the destination of the previous leg. The date and the local time decide
+  where no chain decides.
+- The chain decides first because a barcode gives no time. Also, a leg across the date
+  line can land on the previous local day.
+- With no title, the client shows "My trip to" and the city of the final destination.
+  The catalogue gives that text, thus it follows the language. The database keeps no
+  default text.
+- The archive lists the journeys, the most recent first. The form of a flight has the
+  field "Trip" when the person has a journey.
+- The import reads one pass at a time. The page of a journey has the button "Add
+  another flight to this trip". It opens `/flights/new?journey=<id>`, and the form
+  departs from the last destination, on the day of the last arrival.
+- The form of a new flight chooses a journey until the person chooses one. The
+  journey is the most recent one whose last leg lands at the origin, 24 hours or less
+  before the departure. With no times, the same day or the next day decides.
+- 24 hours is the limit of a connection. A longer stop starts a new journey, thus the
+  return flight does not go into the journey of the outbound flight.
+
+The migration `0003_journey` gives each old flight a journey with the same identifier.
+drizzle-kit wrote `ALTER TABLE ... ADD ... NOT NULL` with no default, and SQLite refuses
+that statement. Thus the migration rebuilds the table `flight`, as drizzle-kit does for
+other changes. `src/server/db/migrations.test.ts` applies the older migrations, writes
+old rows, then applies `0003_journey`.
+
 ## 4. Authentication
 
 A person signs in with a **magic link**. Better Auth makes the link, and Resend sends the
@@ -362,12 +406,13 @@ sufficient.
 `index.html` holds the title and the description in English. A crawler reads no
 JavaScript, thus those two items cannot come from the catalogue.
 
-### 5.3 The page of a shared flight
+### 5.3 The page of a shared journey
 
-A person can share one flight with a public link. The preview of that link needs the
-tags of Open Graph in the HTML, because a crawler reads no JavaScript. Therefore:
+A person can share one journey with a public link (paragraph 3.5). The preview of that
+link needs the tags of Open Graph in the HTML, because a crawler reads no JavaScript.
+Therefore:
 
-- A route of Hono supplies the page of a shared flight. It adds the tags to `index.html`
+- A route of Hono supplies the page of a shared journey. It adds the tags to `index.html`
   with `HTMLRewriter`.
 - A second route makes the image of the preview with Satori. The image is the paper
   boarding pass.
@@ -562,6 +607,35 @@ zone of each airport give it. With no arrival time, the estimate is the distance
 the duration with the arrival time in the form. During the replay, the local time of
 each airport moves. With no departure time, the controls show the time of the flight.
 
+#### A journey of more legs
+
+`src/client/lib/journey-replay.ts` holds the logic of a journey, with tests. The replay
+of one flight is a journey of one leg: the page has one path.
+
+- `t` from 0 to 1 is the real time from the first departure to the last arrival. The
+  stops between the legs are parts of that time. Thus a change of the speed does not
+  move the aircraft.
+- A stop is the time from an arrival to the next departure. With no departure time on
+  one of the two legs, the stop is unknown and has no length.
+- Each part of the timeline has its speed (`Stretch` and `advance` in `replay.ts`). The
+  flights share the length of the replay by their duration.
+- A short replay (`15 s` to `5 min`) waits 1.5 s at each known stop, thus the person sees
+  the landing. The waits use a maximum of 1/5 of the replay.
+- A long replay (`4×` and real time) has the choice "Layovers": "Include" or "Skip". The
+  default is "Include": the aircraft waits for the time of the stop, divided by the
+  factor. With "Skip", the aircraft departs again at the landing, and the clocks go to
+  the next departure. The choice shows only with a known stop.
+- During a stop, the aircraft stays at the airport, with a speed and an altitude of 0.
+  The controls show the clock of that airport.
+- The routes of the legs are continuous: the longitudes go on across the antimeridian
+  from one leg to the next.
+- A leg that departs from another airport of the city (Heathrow, then Gatwick) gives a
+  dotted line on the ground between the two airports.
+- The distance and the time to go are to the final destination. A mark under the
+  timeline shows each landing before the final destination.
+- The stub of the first pass starts the replay. With an airport that is not in the
+  dataset, the page shows only the passes.
+
 `src/client/lib/flight-profile.ts` gives a simulated speed and altitude, because the pass
 gives no real data:
 
@@ -624,10 +698,12 @@ src/
   server/          the Worker
     airports/      the dataset of the airports and its search
     db/schema.ts   the tables, with Drizzle
+    db/migrations.test.ts   the tests of the migrations that move data
     test/d1.ts     a real D1 database for the tests
     app.ts         the routes of Hono
     auth.ts        Better Auth for one request
     flights.ts     the routes of /api/flights
+    journeys.ts    the routes of /api/journeys
     session.ts     the guard requireSession
     email.ts       the email of the magic link, with the API of Resend
     index.ts       the entry point of the Worker
@@ -702,7 +778,7 @@ and the open checks.
 | 6 | Relive your flight | #8 |
 | 7 | The parser of `.pkpass` files | #9 |
 | 8 | The BCBP barcode from an image | #10 |
-| 9 | The public page of a shared flight, with the preview | #11 |
+| 9 | The public page of a shared journey, with the preview | #11 |
 | 10 | The Italian catalogue | #12 |
 
 The deployment comes after the authentication and before the data. A real environment

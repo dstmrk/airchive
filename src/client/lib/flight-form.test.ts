@@ -7,6 +7,8 @@ import {
 	toPayload,
 } from "./flight-form.ts";
 
+const JOURNEY = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+
 const filled = {
 	...emptyForm(),
 	designator: "az 784",
@@ -34,6 +36,18 @@ describe("toPayload", () => {
 		});
 	});
 
+	it("gives no journey for a new journey, thus the API starts one", () => {
+		expect(toPayload(filled)).toEqual({
+			flight: expect.objectContaining({ journeyId: null }),
+		});
+	});
+
+	it("gives the journey that the person chose", () => {
+		expect(toPayload({ ...filled, journeyId: JOURNEY })).toEqual({
+			flight: expect.objectContaining({ journeyId: JOURNEY }),
+		});
+	});
+
 	it("gives an issue on the designator for a text that is not a flight", () => {
 		const result = toPayload({ ...filled, designator: "784" });
 
@@ -57,6 +71,7 @@ describe("formFromFlight", () => {
 	it("gives back the same values for the form", () => {
 		const flight: FlightView = {
 			id: "1",
+			journeyId: JOURNEY,
 			airlineCode: "AZ",
 			flightNumber: "784",
 			airlineName: "ITA Airways",
@@ -81,11 +96,13 @@ describe("formFromFlight", () => {
 		expect(form.airlineName).toBe("ITA Airways");
 		expect(form.departureTime).toBe("");
 		expect(form.accentColor).toBe("#00205b");
+		expect(form.journeyId).toBe(JOURNEY);
 		expect(toPayload(form)).toEqual({
 			flight: expect.objectContaining({
 				airlineCode: "AZ",
 				departureTime: null,
 				accentColor: "#00205b",
+				journeyId: JOURNEY,
 			}),
 		});
 	});
@@ -100,6 +117,12 @@ describe("issuesByField", () => {
 				{ path: [], message: "invalid_json" },
 			]),
 		).toEqual({ designator: "invalid", destination: "unknown_airport" });
+	});
+
+	it("keeps the issue of a journey that does not exist", () => {
+		expect(
+			issuesByField([{ path: ["journeyId"], message: "unknown_journey" }]),
+		).toEqual({ journeyId: "unknown_journey" });
 	});
 
 	it("keeps the first issue of a field", () => {

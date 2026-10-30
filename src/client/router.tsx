@@ -5,9 +5,10 @@ import {
 	Outlet,
 } from "@tanstack/react-router";
 import { FlightEditPage } from "./FlightEditPage.tsx";
-import { FlightPage } from "./FlightPage.tsx";
 import { HomePage } from "./HomePage.tsx";
-import { flightSearch } from "./lib/cabin.ts";
+import { JourneyPage } from "./JourneyPage.tsx";
+import { journeySearch } from "./lib/cabin.ts";
+import { newFlightSearch } from "./lib/journey.ts";
 import { NewFlightPage } from "./NewFlightPage.tsx";
 import { NotFoundPage } from "./NotFoundPage.tsx";
 import { SignInPage } from "./SignInPage.tsx";
@@ -40,18 +41,20 @@ const signInRoute = createRoute({
 	component: SignInPage,
 });
 
+/** `?journey=<id>` adds the new flight to that journey, as its next leg. */
 const newFlightRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/flights/new",
+	validateSearch: newFlightSearch,
 	component: NewFlightPage,
 });
 
 /** `?replay=true` opens the cabin of the replay. Paragraph 5.6 of `docs/architecture.md`. */
-const flightRoute = createRoute({
+const journeyRoute = createRoute({
 	getParentRoute: () => rootRoute,
-	path: "/flights/$flightId",
-	validateSearch: flightSearch,
-	component: FlightPage,
+	path: "/journeys/$journeyId",
+	validateSearch: journeySearch,
+	component: JourneyPage,
 });
 
 const flightEditRoute = createRoute({
@@ -65,7 +68,7 @@ export const router = createRouter({
 		homeRoute,
 		signInRoute,
 		newFlightRoute,
-		flightRoute,
+		journeyRoute,
 		flightEditRoute,
 	]),
 });

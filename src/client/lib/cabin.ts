@@ -4,10 +4,10 @@
  * Paragraph 5.6 of `docs/architecture.md` gives the decisions.
  */
 
-export type FlightSearch = { replay?: true };
+export type JourneySearch = { replay?: true };
 
-/** The search of the page of a flight. Only `replay=true` opens the cabin. */
-export function flightSearch(search: Record<string, unknown>): FlightSearch {
+/** The search of the page of a journey. Only `replay=true` opens the cabin. */
+export function journeySearch(search: Record<string, unknown>): JourneySearch {
 	return search.replay === true ? { replay: true } : {};
 }
 

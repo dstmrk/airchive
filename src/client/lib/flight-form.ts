@@ -25,6 +25,8 @@ export type FlightFormValues = {
 	bookingReference: string;
 	/** No input shows it: an import of a pass gives it, and an edit keeps it. */
 	accentColor: string;
+	/** The identifier of the journey, or "" for a new journey. */
+	journeyId: string;
 };
 
 export type FormField = keyof FlightFormValues;
@@ -37,7 +39,9 @@ export type IssueCode =
 	| "invalid"
 	| "same_airport"
 	| "arrival_before_departure"
-	| "unknown_airport";
+	| "unknown_airport"
+	| "unknown_journey"
+	| "overlaps_leg";
 
 export type FieldIssues = Partial<Record<FormField, IssueCode>>;
 
@@ -45,6 +49,8 @@ const SPECIFIC: ReadonlySet<string> = new Set([
 	"same_airport",
 	"arrival_before_departure",
 	"unknown_airport",
+	"unknown_journey",
+	"overlaps_leg",
 ]);
 
 export function emptyForm(): FlightFormValues {
@@ -62,6 +68,7 @@ export function emptyForm(): FlightFormValues {
 		passengerName: "",
 		bookingReference: "",
 		accentColor: "",
+		journeyId: "",
 	};
 }
 
@@ -80,6 +87,7 @@ export function formFromFlight(flight: FlightView): FlightFormValues {
 		passengerName: flight.passengerName ?? "",
 		bookingReference: flight.bookingReference ?? "",
 		accentColor: flight.accentColor ?? "",
+		journeyId: flight.journeyId,
 	};
 }
 

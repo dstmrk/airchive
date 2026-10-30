@@ -11,12 +11,15 @@ import {
 	Marker,
 	Source,
 } from "react-map-gl/maplibre";
-import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import { follow, INITIAL_FOLLOW } from "../lib/follow.ts";
-import { greatCircle, type LonLat, routeBounds } from "../lib/great-circle.ts";
+import { routeBounds } from "../lib/great-circle.ts";
+import {
+	type JourneyMoment,
+	journeyMap,
+	type Timeline,
+} from "../lib/journey-replay.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
-import { flownRoute, position } from "../lib/replay.ts";
 import { CIVIL_DUSK, darkArea, SUNSET } from "../lib/terminator.ts";
 
 setWorkerUrl(workerUrl);
@@ -89,14 +92,15 @@ function Aircraft() {
 }
 
 /**
- * The route of a flight on a map: the great circle between the two airports.
- * Paragraph 5.5 of `docs/architecture.md` gives the decisions. The page loads
- * this component lazily, thus the archive does not load MapLibre.
+ * The route of a journey on a map: the great circle of each leg. A dotted
+ * line on the ground joins two airports of one city. Paragraph 5.5 of
+ * `docs/architecture.md` gives the decisions. The page loads this component
+ * lazily, thus the archive does not load MapLibre.
  *
- * During the replay, `progress` (the part of the distance, from 0 to 1) puts
- * the aircraft on the route, and a solid line shows the part that it flew. The
- * map keeps the aircraft at the centre, also during a zoom. A drag of the map
- * stops it, and a tap of the aircraft starts and stops it.
+ * During the replay, `view` puts the aircraft on the route, and a solid line
+ * shows the part that it flew. The map keeps the aircraft at the centre, also
+ * during a zoom. A drag of the map stops it, and a tap of the aircraft starts
+ * and stops it.
  *
  * With `instant` (the time of the replay, to the minute), a dark layer covers
  * the night. A lighter band before it is the civil twilight.
@@ -105,15 +109,13 @@ function Aircraft() {
  * it: the page under the cabin does not scroll.
  */
 export default function FlightMap({
-	origin,
-	destination,
-	progress = null,
+	timeline,
+	view = null,
 	instant = null,
 	cabin = false,
 }: Readonly<{
-	origin: Airport;
-	destination: Airport;
-	progress?: number | null;
+	timeline: Timeline;
+	view?: JourneyMoment | null;
 	instant?: number | null;
 	cabin?: boolean;
 }>) {
@@ -121,16 +123,11 @@ export default function FlightMap({
 	const mapRef = useRef<MapRef>(null);
 	const [following, dispatchFollow] = useReducer(follow, INITIAL_FOLLOW);
 	const { data: mapStyle, isError } = usePaperStyle();
-	const from: LonLat = [origin.lon, origin.lat];
-	const to: LonLat = [destination.lon, destination.lat];
-	const route = useMemo(
-		() =>
-			greatCircle([origin.lon, origin.lat], [destination.lon, destination.lat]),
-		[origin, destination],
-	);
-	const aircraft = progress === null ? null : position(route, progress);
-	const flown = progress === null ? [] : flownRoute(route, progress);
-	const end = route.at(-1) ?? to;
+	const { routes } = timeline;
+	const { pins, transfers } = useMemo(() => journeyMap(timeline), [timeline]);
+	const bounds = useMemo(() => routeBounds(routes.flat()), [routes]);
+	const aircraft = view?.aircraft ?? null;
+	const flown = view?.flown ?? [];
 	const tracking = aircraft !== null && following;
 	const centre = tracking ? [aircraft.lon, aircraft.lat] : null;
 	const css = getComputedStyle(document.documentElement);
@@ -167,11 +164,12 @@ export default function FlightMap({
 	}, [lon, lat]);
 
 	// The replay without an aircraft (it did not start) starts again with the follow on.
+	const started = view !== null;
 	useEffect(() => {
-		if (progress === null) {
+		if (!started) {
 			dispatchFollow("reset");
 		}
-	}, [progress]);
+	}, [started]);
 
 	// A zoom around the centre keeps the aircraft where it is.
 	useEffect(() => {
@@ -195,8 +193,8 @@ export default function FlightMap({
 			map.cooperativeGestures.enable();
 		}
 		map.resize();
-		map.fitBounds(routeBounds(route), { padding: 56, animate: false });
-	}, [cabin, route]);
+		map.fitBounds(bounds, { padding: 56, animate: false });
+	}, [cabin, bounds]);
 
 	if (isError) {
 		return (
@@ -219,7 +217,7 @@ export default function FlightMap({
 					<MapView
 						ref={mapRef}
 						initialViewState={{
-							bounds: routeBounds(route),
+							bounds,
 							fitBoundsOptions: { padding: 56 },
 						}}
 						mapStyle={mapStyle}
@@ -263,7 +261,7 @@ export default function FlightMap({
 							data={{
 								type: "Feature",
 								properties: {},
-								geometry: { type: "LineString", coordinates: route },
+								geometry: { type: "MultiLineString", coordinates: routes },
 							}}
 						>
 							<Layer
@@ -283,7 +281,7 @@ export default function FlightMap({
 							data={{
 								type: "Feature",
 								properties: {},
-								geometry: { type: "LineString", coordinates: flown },
+								geometry: { type: "MultiLineString", coordinates: flown },
 							}}
 						>
 							<Layer
@@ -293,13 +291,37 @@ export default function FlightMap({
 								paint={{ "line-color": accent, "line-width": 3 }}
 							/>
 						</Source>
-						<Marker longitude={from[0]} latitude={from[1]} anchor="bottom">
-							<AirportPin code={origin.iata} />
-						</Marker>
-						{/* The unwrapped longitude keeps the marker at the end of the drawn line. */}
-						<Marker longitude={end[0]} latitude={end[1]} anchor="bottom">
-							<AirportPin code={destination.iata} />
-						</Marker>
+						<Source
+							id="transfers"
+							type="geojson"
+							data={{
+								type: "Feature",
+								properties: {},
+								geometry: { type: "MultiLineString", coordinates: transfers },
+							}}
+						>
+							<Layer
+								id="transfers-line"
+								type="line"
+								layout={{ "line-cap": "round" }}
+								paint={{
+									"line-color": accent,
+									"line-width": 1.5,
+									"line-dasharray": [0.5, 2],
+								}}
+							/>
+						</Source>
+						{/* The unwrapped longitudes keep each marker at the end of its drawn line. */}
+						{pins.map(({ code, at }) => (
+							<Marker
+								key={code}
+								longitude={at[0]}
+								latitude={at[1]}
+								anchor="bottom"
+							>
+								<AirportPin code={code} />
+							</Marker>
+						))}
 						{aircraft && (
 							<Marker
 								longitude={aircraft.lon}

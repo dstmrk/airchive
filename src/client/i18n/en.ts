@@ -28,17 +28,17 @@ export const en = {
 	signedInAs: "Signed in as",
 	signOut: "Sign out",
 
-	archiveTitle: "Your flights",
-	archiveEmpty: "No flights yet. Add the first one.",
-	archiveLoadFailed: "We could not load your flights. Try again later.",
+	archiveTitle: "Your trips",
+	archiveEmpty: "No trips yet. Add your first flight.",
+	archiveLoadFailed: "We could not load your trips. Try again later.",
 	addFlight: "Add a flight",
 	loading: "Loading…",
 
 	newFlightTitle: "Add a flight",
 	editFlightTitle: "Edit the flight",
 	flightNotFound: "This flight does not exist.",
-	backToArchive: "Back to your flights",
-	backToFlight: "Back to the flight",
+	backToArchive: "Back to your trips",
+	backToJourney: "Back to the trip",
 
 	fieldDesignator: "Flight",
 	fieldDesignatorHint: "For example AZ 784",
@@ -54,6 +54,11 @@ export const en = {
 	fieldCabinClass: "Class (optional)",
 	fieldPassengerName: "Passenger name (optional)",
 	fieldBookingReference: "Booking reference (optional)",
+	fieldJourney: "Trip",
+	fieldJourneyHint: "Put the flights of one trip with connections together.",
+	fieldJourneySuggested:
+		"This flight departs after the last landing of this trip. Choose another trip if necessary.",
+	journeyNew: "A new trip",
 
 	cabinNone: "Not given",
 	cabinEconomy: "Economy",
@@ -65,6 +70,10 @@ export const en = {
 	issueSameAirport: "The destination must be different from the origin.",
 	issueArrivalBeforeDeparture: "The arrival cannot be before the departure.",
 	issueUnknownAirport: "We do not know this airport. Choose one from the list.",
+	issueOverlapsLeg:
+		"Another flight of this trip is in the air at this time. Check the times.",
+	issueUnknownJourney:
+		"This trip does not exist now. Choose one from the list.",
 
 	saveFlight: "Save",
 	saving: "Saving…",
@@ -73,6 +82,16 @@ export const en = {
 	deleteConfirm: "Delete this flight? You cannot undo this.",
 	deleteFailed: "We could not delete the flight. Try again later.",
 	editFlight: "Edit",
+
+	journeyDefaultTitle: "My trip to",
+	journeyNotFound: "This trip does not exist.",
+	journeyRename: "Rename",
+	journeyAddFlight: "Add another flight to this trip",
+	journeyTitleLabel: "Title of the trip",
+	journeyTitleHint: "Leave it empty for the default title.",
+	journeySaveTitle: "Save",
+	journeyCancel: "Cancel",
+	journeyRenameFailed: "We could not rename the trip. Try again later.",
 
 	passTitle: "Boarding pass",
 	passStub: "Stub",
@@ -98,6 +117,9 @@ export const en = {
 	replayTimeline: "Progress of the flight",
 	replaySpeed: "Speed",
 	replayMoreSpeeds: "More speeds",
+	replayStops: "Layovers",
+	replayStopsReal: "Include",
+	replayStopsSkip: "Skip",
 	replayEstimated: "Estimated duration",
 	speed15s: "15 s",
 	speed30s: "30 s",

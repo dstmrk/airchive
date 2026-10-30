@@ -108,6 +108,11 @@ These rules apply to the tables and to the auth:
 
 - Change `src/server/db/schema.ts`, then run `npm run db:generate`. Do not write a
   migration by hand. Commit the migration of `drizzle/`.
+- drizzle-kit writes `ALTER TABLE ... ADD ... NOT NULL` with no default for a new
+  required column. SQLite refuses that statement. Change the generated SQL to rebuild
+  the table and to give the values, and keep the snapshot. Add a test of the data to
+  `src/server/db/migrations.test.ts`. Paragraph 3.5 of `docs/architecture.md` gives
+  an example.
 - After a change of the options of Better Auth, compare `schema.ts` with
   `getAuthTables` of `better-auth/db`. A plugin can need a new table.
 - A test of the server that needs D1 uses `createTestD1` of `src/server/test/d1.ts`. Do

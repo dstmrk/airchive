@@ -27,18 +27,18 @@ export const it: Messages = {
 	signedInAs: "Accesso come",
 	signOut: "Esci",
 
-	archiveTitle: "I tuoi voli",
-	archiveEmpty: "Ancora nessun volo. Aggiungi il primo.",
+	archiveTitle: "I tuoi viaggi",
+	archiveEmpty: "Ancora nessun viaggio. Aggiungi il tuo primo volo.",
 	archiveLoadFailed:
-		"Non siamo riusciti a caricare i tuoi voli. Riprova più tardi.",
+		"Non siamo riusciti a caricare i tuoi viaggi. Riprova più tardi.",
 	addFlight: "Aggiungi un volo",
 	loading: "Caricamento…",
 
 	newFlightTitle: "Aggiungi un volo",
 	editFlightTitle: "Modifica il volo",
 	flightNotFound: "Questo volo non esiste.",
-	backToArchive: "Torna ai tuoi voli",
-	backToFlight: "Torna al volo",
+	backToArchive: "Torna ai tuoi viaggi",
+	backToJourney: "Torna al viaggio",
 
 	fieldDesignator: "Volo",
 	fieldDesignatorHint: "Per esempio AZ 784",
@@ -54,6 +54,11 @@ export const it: Messages = {
 	fieldCabinClass: "Classe (facoltativa)",
 	fieldPassengerName: "Nome del passeggero (facoltativo)",
 	fieldBookingReference: "Codice di prenotazione (facoltativo)",
+	fieldJourney: "Viaggio",
+	fieldJourneyHint: "Metti insieme i voli di un viaggio con scali.",
+	fieldJourneySuggested:
+		"Questo volo parte dopo l'ultimo atterraggio di questo viaggio. Se serve, scegli un altro viaggio.",
+	journeyNew: "Un nuovo viaggio",
 
 	cabinNone: "Non indicata",
 	cabinEconomy: "Economy",
@@ -66,6 +71,10 @@ export const it: Messages = {
 	issueArrivalBeforeDeparture: "L'arrivo non può essere prima della partenza.",
 	issueUnknownAirport:
 		"Non conosciamo questo aeroporto. Scegline uno dalla lista.",
+	issueOverlapsLeg:
+		"Un altro volo di questo viaggio è in aria a quest'ora. Controlla gli orari.",
+	issueUnknownJourney:
+		"Questo viaggio non esiste più. Scegline uno dalla lista.",
 
 	saveFlight: "Salva",
 	saving: "Salvataggio…",
@@ -74,6 +83,17 @@ export const it: Messages = {
 	deleteConfirm: "Eliminare questo volo? Non si può annullare.",
 	deleteFailed: "Non siamo riusciti a eliminare il volo. Riprova più tardi.",
 	editFlight: "Modifica",
+
+	journeyDefaultTitle: "Il mio viaggio a",
+	journeyNotFound: "Questo viaggio non esiste.",
+	journeyRename: "Rinomina",
+	journeyAddFlight: "Aggiungi un altro volo a questo viaggio",
+	journeyTitleLabel: "Titolo del viaggio",
+	journeyTitleHint: "Lascialo vuoto per il titolo predefinito.",
+	journeySaveTitle: "Salva",
+	journeyCancel: "Annulla",
+	journeyRenameFailed:
+		"Non siamo riusciti a rinominare il viaggio. Riprova più tardi.",
 
 	passTitle: "Carta d'imbarco",
 	passStub: "Tagliando",
@@ -99,6 +119,9 @@ export const it: Messages = {
 	replayAgain: "Vola di nuovo",
 	replayTimeline: "Avanzamento del volo",
 	replaySpeed: "Velocità",
+	replayStops: "Scali",
+	replayStopsReal: "Includi",
+	replayStopsSkip: "Salta",
 	replayMoreSpeeds: "Altre velocità",
 	replayEstimated: "Durata stimata",
 	speed15s: "15 s",
