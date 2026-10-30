@@ -76,6 +76,11 @@ export type SpeedId = (typeof SPEEDS)[number]["id"];
 
 export const DEFAULT_SPEED: SpeedId = "30s";
 
+/** A long replay is a multiple of the real time, not a fixed length. */
+export function isLongSpeed(id: SpeedId): boolean {
+	return SPEEDS.some((speed) => speed.id === id && "factor" in speed);
+}
+
 /** The length of the replay in milliseconds, for a flight of `flightMs`. */
 export function replayMs(id: SpeedId, flightMs: number): number {
 	const speed = SPEEDS.find((s) => s.id === id) ?? SPEEDS[1];

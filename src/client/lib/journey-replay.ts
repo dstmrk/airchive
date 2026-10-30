@@ -10,6 +10,7 @@ import { type FlightTiming, flightTiming } from "./flight-time.ts";
 import { distanceKm, greatCircle, type LonLat } from "./great-circle.ts";
 import {
 	flownRoute,
+	isLongSpeed,
 	type Position,
 	position,
 	replayMs,
@@ -133,25 +134,61 @@ export function journeyTimeline(legs: readonly JourneyLeg[]): Timeline {
 	};
 }
 
+/** What a long replay does at a stop: it waits for the real time, or it skips the stop. */
+export type StopMode = "real" | "skip";
+
+/** In a short replay, the aircraft waits this time at each known stop. */
+export const SHORT_STOP_MS = 1500;
+/** The waits of a short replay use a maximum of this part of its length. */
+const MAX_SHORT_STOPS = 0.2;
+
+/** True when a stop has a length: the choice of the stops changes the replay. */
+export function hasKnownStop(timeline: Timeline): boolean {
+	return timeline.parts.some((part) => part.kind === "stop" && part.ms > 0);
+}
+
 /**
- * The parts of the replay at a speed. A short replay has a fixed length, and
- * a long replay is a multiple of the real time, as for one flight: the
- * flights share that length by their duration. The replay skips the stops.
+ * The parts of the replay at a speed. As for one flight, a short replay has
+ * a fixed length, and a long replay is a multiple of the real time.
+ *
+ * - A short replay waits `SHORT_STOP_MS` at each known stop, thus the person
+ *   sees the landing. The flights share the rest by their duration.
+ * - A long replay waits the real time of a stop, divided by the factor, or it
+ *   skips the stop. `stops` gives the choice.
  */
 export function journeyStretches(
 	timeline: Timeline,
 	speed: SpeedId,
+	stops: StopMode,
 ): Stretch[] {
+	const known = timeline.parts.filter(
+		(part) => part.kind === "stop" && part.ms > 0,
+	).length;
 	const flightsMs = timeline.parts
 		.filter((part) => part.kind === "flight")
 		.reduce((sum, part) => sum + part.ms, 0);
+	const long = isLongSpeed(speed);
 	const length = replayMs(speed, flightsMs);
+	const shortStop =
+		known > 0 ? Math.min(SHORT_STOP_MS, (length * MAX_SHORT_STOPS) / known) : 0;
+	const flying = long ? length : length - shortStop * known;
+	const stopLength = (ms: number) => {
+		if (ms <= 0) {
+			return 0;
+		}
+		if (!long) {
+			return shortStop;
+		}
+		return stops === "real" ? replayMs(speed, ms) : 0;
+	};
 	return timeline.parts.map((part) => ({
 		width: timeline.totalMs > 0 ? part.ms / timeline.totalMs : 0,
 		ms:
-			part.kind === "flight" && flightsMs > 0
-				? (length * part.ms) / flightsMs
-				: 0,
+			part.kind === "stop"
+				? stopLength(part.ms)
+				: flightsMs > 0
+					? (flying * part.ms) / flightsMs
+					: 0,
 	}));
 }
 

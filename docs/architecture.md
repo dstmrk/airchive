@@ -610,8 +610,13 @@ of one flight is a journey of one leg: the page has one path.
 - A stop is the time from an arrival to the next departure. With no departure time on
   one of the two legs, the stop is unknown and has no length.
 - Each part of the timeline has its speed (`Stretch` and `advance` in `replay.ts`). The
-  flights share the length of the replay by their duration. The replay skips each stop
-  in no time: at the landing, the clocks go to the next departure.
+  flights share the length of the replay by their duration.
+- A short replay (`15 s` to `5 min`) waits 1.5 s at each known stop, thus the person sees
+  the landing. The waits use a maximum of 1/5 of the replay.
+- A long replay (`4×` and real time) has the choice "Layovers": "Include" or "Skip". The
+  default is "Include": the aircraft waits for the time of the stop, divided by the
+  factor. With "Skip", the aircraft departs again at the landing, and the clocks go to
+  the next departure. The choice shows only with a known stop.
 - During a stop, the aircraft stays at the airport, with a speed and an altitude of 0.
   The controls show the clock of that airport.
 - The routes of the legs are continuous: the longitudes go on across the antimeridian

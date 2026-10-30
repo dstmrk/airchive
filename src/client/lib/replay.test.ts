@@ -6,6 +6,7 @@ import {
 	flownRoute,
 	inCabin,
 	initialReplay,
+	isLongSpeed,
 	isTorn,
 	position,
 	type ReplayState,
@@ -81,6 +82,15 @@ describe("flownRoute", () => {
 
 	it("gives no line at the start", () => {
 		expect(flownRoute(route, 0)).toEqual([]);
+	});
+});
+
+describe("isLongSpeed", () => {
+	it("is true only for a multiple of the real time", () => {
+		expect(SPEEDS.filter((s) => isLongSpeed(s.id)).map((s) => s.id)).toEqual([
+			"4x",
+			"1x",
+		]);
 	});
 });
 

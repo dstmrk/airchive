@@ -3,6 +3,7 @@ import type { Airport } from "../../shared/airport.ts";
 import type { FlightView } from "../../shared/flight.ts";
 import {
 	finalArrival,
+	hasKnownStop,
 	type JourneyLeg,
 	journeyLegs,
 	journeyMap,
@@ -10,6 +11,7 @@ import {
 	journeyStretches,
 	journeyTimeline,
 	landingMarks,
+	SHORT_STOP_MS,
 } from "./journey-replay.ts";
 
 const airport = (iata: string, lon: number, lat: number): Airport => ({
@@ -101,28 +103,72 @@ describe("journeyTimeline", () => {
 });
 
 describe("journeyStretches", () => {
-	it("shares a short replay between the flights by duration, and skips the stop", () => {
-		expect(journeyStretches(tokyo, "30s")).toEqual([
-			{ width: 6 / 18, ms: 12_000 },
-			{ width: 3 / 18, ms: 0 },
-			{ width: 9 / 18, ms: 18_000 },
+	it("waits a short time at a stop in a short replay, and the flights share the rest", () => {
+		const wait = SHORT_STOP_MS;
+
+		expect(journeyStretches(tokyo, "30s", "real")).toEqual([
+			{ width: 6 / 18, ms: ((30_000 - wait) * 6) / 15 },
+			{ width: 3 / 18, ms: wait },
+			{ width: 9 / 18, ms: ((30_000 - wait) * 9) / 15 },
 		]);
 	});
 
-	it("gives a long replay as a multiple of the flight time", () => {
-		expect(journeyStretches(tokyo, "4x").map((s) => s.ms)).toEqual([
+	it("gives a short replay the same parts with the two modes of the stops", () => {
+		expect(journeyStretches(tokyo, "1min", "skip")).toEqual(
+			journeyStretches(tokyo, "1min", "real"),
+		);
+	});
+
+	it("keeps the waits of a short replay to a fifth of its length", () => {
+		const legs = Array.from({ length: 12 }, (_, i) =>
+			leg(i % 2 ? AUH : FCO, i % 2 ? FCO : AUH, T0 + i * 8 * HOUR, 6),
+		);
+		const stretches = journeyStretches(journeyTimeline(legs), "15s", "real");
+		const waits = stretches.filter((_, i) => i % 2 === 1);
+
+		expect(waits).toHaveLength(11);
+		expect(waits.reduce((sum, s) => sum + s.ms, 0)).toBeCloseTo(3000, 6);
+		expect(stretches.reduce((sum, s) => sum + s.ms, 0)).toBeCloseTo(15_000, 6);
+	});
+
+	it("waits the real time of a stop, divided by the factor, in a long replay", () => {
+		expect(journeyStretches(tokyo, "4x", "real").map((s) => s.ms)).toEqual([
 			1.5 * HOUR,
-			0,
+			0.75 * HOUR,
 			2.25 * HOUR,
 		]);
+	});
+
+	it("skips the stop in a long replay when the person chooses it", () => {
+		expect(journeyStretches(tokyo, "1x", "skip").map((s) => s.ms)).toEqual([
+			6 * HOUR,
+			0,
+			9 * HOUR,
+		]);
+	});
+
+	it("does not wait at an unknown stop", () => {
+		const timeline = journeyTimeline([
+			leg(FCO, AUH, T0, 6),
+			leg(AUH, NRT, null, 9),
+		]);
+
+		expect(journeyStretches(timeline, "30s", "real")).toEqual([
+			{ width: 6 / 15, ms: 12_000 },
+			{ width: 0, ms: 0 },
+			{ width: 9 / 15, ms: 18_000 },
+		]);
+		expect(hasKnownStop(timeline)).toBe(false);
 	});
 
 	it("gives the replay of one flight for one leg", () => {
 		const timeline = journeyTimeline([leg(FCO, NRT, T0, 12)]);
 
-		expect(journeyStretches(timeline, "1min")).toEqual([
+		expect(journeyStretches(timeline, "1min", "real")).toEqual([
 			{ width: 1, ms: 60_000 },
 		]);
+		expect(hasKnownStop(timeline)).toBe(false);
+		expect(hasKnownStop(tokyo)).toBe(true);
 	});
 });
 

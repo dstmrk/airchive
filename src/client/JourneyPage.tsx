@@ -214,7 +214,8 @@ function JourneyReplay({
 	const navigate = useNavigate({ from: "/journeys/$journeyId" });
 	const { replay: inUrl = false } = useSearch({ from: "/journeys/$journeyId" });
 	const timeline = useMemo(() => journeyTimeline(legs), [legs]);
-	const { state, dispatch, speed, setSpeed } = useReplay(timeline);
+	const { state, dispatch, speed, setSpeed, stops, setStops } =
+		useReplay(timeline);
 	const started = state.phase !== "idle";
 	const cabin = inCabin(state);
 	const view = journeyMomentAt(timeline, state.t);
@@ -329,6 +330,8 @@ function JourneyReplay({
 							dispatch={dispatch}
 							speed={speed}
 							onSpeed={setSpeed}
+							stops={stops}
+							onStops={setStops}
 							timeline={timeline}
 							view={view}
 						/>

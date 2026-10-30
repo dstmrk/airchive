@@ -6,14 +6,17 @@ import { clockAt, durationText } from "../lib/flight-time.ts";
 import { formatUnit } from "../lib/format.ts";
 import {
 	finalArrival,
+	hasKnownStop,
 	type JourneyMoment,
 	journeyStretches,
 	landingMarks,
+	type StopMode,
 	type Timeline,
 } from "../lib/journey-replay.ts";
 import {
 	DEFAULT_SPEED,
 	initialReplay,
+	isLongSpeed,
 	type ReplayState,
 	replay,
 	SPEEDS,
@@ -30,10 +33,6 @@ const SPEED_TEXT: Record<SpeedId, keyof Messages> = {
 	"4x": "speed4x",
 	"1x": "speed1x",
 };
-
-/** A long replay is a multiple of the real time. On a telephone it is in the menu "⋯". */
-const isLong = (id: SpeedId) =>
-	SPEEDS.some((speed) => speed.id === id && "factor" in speed);
 
 /**
  * Animates the opening and the closing of the cabin. The element with the
@@ -53,9 +52,11 @@ export function cabinTransition(update: () => void) {
 export function useReplay(timeline: Timeline) {
 	const [state, dispatch] = useReducer(replay, initialReplay);
 	const [speed, setSpeed] = useState<SpeedId>(DEFAULT_SPEED);
+	// Real time holds the stops, as the journey did.
+	const [stops, setStops] = useState<StopMode>("real");
 	const stretches = useMemo(
-		() => journeyStretches(timeline, speed),
-		[timeline, speed],
+		() => journeyStretches(timeline, speed, stops),
+		[timeline, speed, stops],
 	);
 
 	useEffect(() => {
@@ -119,7 +120,7 @@ export function useReplay(timeline: Timeline) {
 		};
 	}, [state.phase, speed]);
 
-	return { state, dispatch, speed, setSpeed };
+	return { state, dispatch, speed, setSpeed, stops, setStops };
 }
 
 function PlayIcon({ playing }: Readonly<{ playing: boolean }>) {
@@ -134,6 +135,11 @@ function PlayIcon({ playing }: Readonly<{ playing: boolean }>) {
 	);
 }
 
+const STOP_MODES: { mode: StopMode; label: keyof Messages }[] = [
+	{ mode: "real", label: "replayStopsReal" },
+	{ mode: "skip", label: "replayStopsSkip" },
+];
+
 const CHIP =
 	"h-9 rounded-full px-2.5 font-medium font-mono text-[13px] aria-pressed:bg-foreground aria-pressed:text-background";
 
@@ -142,6 +148,8 @@ type ReplayControlsProps = Readonly<{
 	dispatch: (event: Parameters<typeof replay>[1]) => void;
 	speed: SpeedId;
 	onSpeed: (id: SpeedId) => void;
+	stops: StopMode;
+	onStops: (mode: StopMode) => void;
 	timeline: Timeline;
 	view: JourneyMoment;
 }>;
@@ -239,6 +247,8 @@ export function ReplayControls({
 	dispatch,
 	speed,
 	onSpeed,
+	stops,
+	onStops,
 	timeline,
 	view,
 }: ReplayControlsProps) {
@@ -330,8 +340,9 @@ export function ReplayControls({
 			</div>
 			<fieldset className="flex flex-wrap items-center gap-1">
 				<legend className="sr-only">{text.replaySpeed}</legend>
-				{SPEEDS.filter((s) => !isLong(s.id)).map((s) => chip(s.id))}
-				{SPEEDS.filter((s) => isLong(s.id)).map((s) =>
+				{/* A long replay is a multiple of the real time. On a telephone it is in the menu "⋯". */}
+				{SPEEDS.filter((s) => !isLongSpeed(s.id)).map((s) => chip(s.id))}
+				{SPEEDS.filter((s) => isLongSpeed(s.id)).map((s) =>
 					chip(
 						s.id,
 						"hidden @min-[640px]:inline-flex @min-[640px]:items-center",
@@ -341,18 +352,37 @@ export function ReplayControls({
 					<summary
 						aria-label={text.replayMoreSpeeds}
 						className={`${CHIP} flex cursor-pointer list-none items-center ${
-							isLong(speed) ? "bg-foreground text-background" : ""
+							isLongSpeed(speed) ? "bg-foreground text-background" : ""
 						}`}
 					>
-						{isLong(speed) ? text[SPEED_TEXT[speed]] : "⋯"}
+						{isLongSpeed(speed) ? text[SPEED_TEXT[speed]] : "⋯"}
 					</summary>
 					<div className="absolute right-0 bottom-11 z-10 flex flex-col gap-1 rounded-lg bg-paper p-1.5 shadow-lg">
-						{SPEEDS.filter((s) => isLong(s.id)).map((s) =>
+						{SPEEDS.filter((s) => isLongSpeed(s.id)).map((s) =>
 							chip(s.id, "whitespace-nowrap"),
 						)}
 					</div>
 				</details>
 			</fieldset>
+			{/* A short replay always waits a moment at a stop: the choice is only for a long replay. */}
+			{isLongSpeed(speed) && hasKnownStop(timeline) && (
+				<fieldset className="flex flex-wrap items-center gap-1">
+					<legend className="float-left mr-2 text-muted-foreground text-xs">
+						{text.replayStops}
+					</legend>
+					{STOP_MODES.map(({ mode, label }) => (
+						<button
+							key={mode}
+							type="button"
+							aria-pressed={stops === mode}
+							onClick={() => onStops(mode)}
+							className={`${CHIP} font-sans`}
+						>
+							{text[label]}
+						</button>
+					))}
+				</fieldset>
+			)}
 		</section>
 	);
 }
