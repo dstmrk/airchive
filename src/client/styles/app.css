@@ -82,6 +82,8 @@
 	--color-map-boundary: #b9ab90;
 	--color-map-road: #e6dccb;
 	--color-map-label: #6b6153;
+	/* The night of the replay: an ink blue that the map shows with a low opacity. */
+	--color-map-night: #1f2a44;
 }
 
 @layer base {

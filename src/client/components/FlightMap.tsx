@@ -17,11 +17,18 @@ import { follow, INITIAL_FOLLOW } from "../lib/follow.ts";
 import { greatCircle, type LonLat, routeBounds } from "../lib/great-circle.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
 import { flownRoute, position } from "../lib/replay.ts";
+import { CIVIL_DUSK, darkArea, SUNSET } from "../lib/terminator.ts";
 
 setWorkerUrl(workerUrl);
 
 /** OpenFreeMap: no key, commercial use allowed. One URL, thus a change of provider is one line. */
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
+
+/** The two dark areas, from the sunset and from the end of the civil dusk. */
+const DARK = [
+	{ id: "after-sunset", altitude: SUNSET },
+	{ id: "after-dusk", altitude: CIVIL_DUSK },
+] as const;
 
 function readPalette(): MapPalette {
 	const css = getComputedStyle(document.documentElement);
@@ -91,6 +98,9 @@ function Aircraft() {
  * map keeps the aircraft at the centre, also during a zoom. A drag of the map
  * stops it, and a tap of the aircraft starts and stops it.
  *
+ * With `instant` (the time of the replay, to the minute), a dark layer covers
+ * the night. A lighter band before it is the civil twilight.
+ *
  * With `cabin`, the map fills the height of its parent, and one finger moves
  * it: the page under the cabin does not scroll.
  */
@@ -98,11 +108,13 @@ export default function FlightMap({
 	origin,
 	destination,
 	progress = null,
+	instant = null,
 	cabin = false,
 }: Readonly<{
 	origin: Airport;
 	destination: Airport;
 	progress?: number | null;
+	instant?: number | null;
 	cabin?: boolean;
 }>) {
 	const text = useText();
@@ -121,9 +133,27 @@ export default function FlightMap({
 	const end = route.at(-1) ?? to;
 	const tracking = aircraft !== null && following;
 	const centre = tracking ? [aircraft.lon, aircraft.lat] : null;
-	const accent = getComputedStyle(document.documentElement)
-		.getPropertyValue("--color-pass-accent")
-		.trim();
+	const css = getComputedStyle(document.documentElement);
+	const accent = css.getPropertyValue("--color-pass-accent").trim();
+	const night = css.getPropertyValue("--color-map-night").trim();
+	// Two areas with the same colour: where they overlap, after the civil dusk, the night is darker.
+	const dark = useMemo(
+		() =>
+			instant === null
+				? null
+				: DARK.map(({ id, altitude }) => ({
+						id,
+						area: {
+							type: "Feature" as const,
+							properties: {},
+							geometry: {
+								type: "Polygon" as const,
+								coordinates: [darkArea(instant, altitude)],
+							},
+						},
+					})),
+		[instant],
+	);
 
 	const lon = centre?.[0];
 	const lat = centre?.[1];
@@ -213,6 +243,20 @@ export default function FlightMap({
 							}
 						}}
 					>
+						{dark?.map(({ id, area }) => (
+							<Source key={id} id={id} type="geojson" data={area}>
+								<Layer
+									id={`${id}-fill`}
+									type="fill"
+									// The outline of the antialias draws a line along the edge of the ring at -180 and 180.
+									paint={{
+										"fill-color": night,
+										"fill-opacity": 0.16,
+										"fill-antialias": false,
+									}}
+								/>
+							</Source>
+						))}
 						<Source
 							id="route"
 							type="geojson"
