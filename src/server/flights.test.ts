@@ -35,6 +35,17 @@ const romeTokyo = {
 	bookingReference: "ABC123",
 };
 
+/** A connection after the landing of romeTokyo, thus the two flights can share a journey. */
+const tokyoHaneda = {
+	...romeTokyo,
+	origin: "NRT",
+	destination: "HND",
+	departureDate: "2024-05-13",
+	departureTime: "11:00",
+	arrivalDate: "2024-05-13",
+	arrivalTime: "12:30",
+};
+
 function call(
 	method: string,
 	path: string,
@@ -233,8 +244,7 @@ describe("the journey of a flight", () => {
 	it("adds a flight to a journey of the owner", async () => {
 		const first = await create(alice);
 		const second = await create(alice, {
-			origin: "NRT",
-			destination: "HND",
+			...tokyoHaneda,
 			journeyId: first.journeyId,
 		});
 
@@ -276,10 +286,10 @@ describe("the journey of a flight", () => {
 
 	it("moves a flight to another journey and deletes the empty journey", async () => {
 		const target = await create(alice);
-		const moved = await create(alice);
+		const moved = await create(alice, tokyoHaneda);
 
 		const response = await call("PUT", `/api/flights/${moved.id}`, alice, {
-			...romeTokyo,
+			...tokyoHaneda,
 			journeyId: target.journeyId,
 		});
 
@@ -293,10 +303,13 @@ describe("the journey of a flight", () => {
 
 	it("takes a flight out of its journey to a new journey", async () => {
 		const first = await create(alice);
-		const second = await create(alice, { journeyId: first.journeyId });
+		const second = await create(alice, {
+			...tokyoHaneda,
+			journeyId: first.journeyId,
+		});
 
 		const response = await call("PUT", `/api/flights/${second.id}`, alice, {
-			...romeTokyo,
+			...tokyoHaneda,
 			journeyId: null,
 		});
 		const updated = (await response.json()) as FlightView;
@@ -329,13 +342,51 @@ describe("the journey of a flight", () => {
 
 	it("deletes the journey with its last flight, and keeps a journey with other flights", async () => {
 		const first = await create(alice);
-		const second = await create(alice, { journeyId: first.journeyId });
+		const second = await create(alice, {
+			...tokyoHaneda,
+			journeyId: first.journeyId,
+		});
 
 		await call("DELETE", `/api/flights/${second.id}`, alice);
 		expect((await journeyOf(alice, first.journeyId))?.flights).toHaveLength(1);
 
 		await call("DELETE", `/api/flights/${first.id}`, alice);
 		expect(await journeyOf(alice, first.journeyId)).toBeNull();
+	});
+
+	it("refuses a flight in the air at the same time as another flight of the journey", async () => {
+		const first = await create(alice);
+		// Rome to Tokyo lands on 2024-05-13 at 09:10; this flight departs Tokyo at 08:00.
+		const leg = {
+			...tokyoHaneda,
+			departureTime: "08:00",
+			arrivalTime: "09:30",
+			journeyId: first.journeyId,
+		};
+
+		const response = await call("POST", "/api/flights", alice, leg);
+		expect(response.status).toBe(400);
+		expect(await response.json()).toMatchObject({
+			issues: [{ path: ["departureTime"], message: "overlaps_leg" }],
+		});
+
+		const later = await create(alice, {
+			...tokyoHaneda,
+			journeyId: first.journeyId,
+		});
+		const moved = await call("PUT", `/api/flights/${later.id}`, alice, leg);
+		expect(moved.status).toBe(400);
+	});
+
+	it("does not compare a flight with itself on a change", async () => {
+		const flight = await create(alice);
+
+		const response = await call("PUT", `/api/flights/${flight.id}`, alice, {
+			...romeTokyo,
+			journeyId: flight.journeyId,
+		});
+
+		expect(response.status).toBe(200);
 	});
 
 	it("does not delete an empty journey of another person", async () => {

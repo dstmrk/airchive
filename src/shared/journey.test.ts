@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { journeyTitleSchema, type LegOrder, orderLegs } from "./journey.ts";
+import {
+	journeyTitleSchema,
+	type LegOrder,
+	orderLegs,
+	overlapsLeg,
+} from "./journey.ts";
 
 const leg = (
 	origin: string,
@@ -115,5 +120,51 @@ describe("journeyTitleSchema", () => {
 		expect(
 			journeyTitleSchema.safeParse({ title: "A", ownerId: "x" }).success,
 		).toBe(false);
+	});
+});
+
+describe("overlapsLeg", () => {
+	const ZONES: Record<string, string> = {
+		FCO: "Europe/Rome",
+		AUH: "Asia/Dubai",
+		NRT: "Asia/Tokyo",
+	};
+	const zone = (code: string) => ZONES[code];
+	const fcoAuh = {
+		origin: "FCO",
+		destination: "AUH",
+		departureDate: "2024-05-12",
+		departureTime: "10:45",
+		arrivalDate: "2024-05-12",
+		arrivalTime: "18:30",
+	};
+	const auhNrt = (departureTime: string | null) => ({
+		origin: "AUH",
+		destination: "NRT",
+		departureDate: "2024-05-12",
+		departureTime,
+		arrivalDate: "2024-05-13",
+		arrivalTime: departureTime && "12:25",
+	});
+
+	it("is false for a connection after the landing", () => {
+		expect(overlapsLeg(auhNrt("21:50"), [fcoAuh], zone)).toBe(false);
+	});
+
+	it("is true for a departure before the previous landing", () => {
+		// 18:00 in Abu Dhabi is before the landing at 18:30.
+		expect(overlapsLeg(auhNrt("18:00"), [fcoAuh], zone)).toBe(true);
+	});
+
+	it("is false for a departure at the minute of the landing", () => {
+		expect(overlapsLeg(auhNrt("18:30"), [fcoAuh], zone)).toBe(false);
+	});
+
+	it("is false when a leg has no times", () => {
+		expect(overlapsLeg(auhNrt(null), [fcoAuh], zone)).toBe(false);
+	});
+
+	it("is false for an airport with no time zone", () => {
+		expect(overlapsLeg(auhNrt("18:00"), [fcoAuh], () => undefined)).toBe(false);
 	});
 });

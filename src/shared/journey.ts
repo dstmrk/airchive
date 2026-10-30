@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { type FlightView, optional } from "./flight.ts";
+import { type LegTimes, legInstants } from "./zoned-time.ts";
 
 /**
  * A journey: the flights from an origin to a final destination, with the
@@ -61,4 +62,41 @@ export function orderLegs<T extends LegOrder>(legs: readonly T[]): T[] {
 		}
 	}
 	return ordered;
+}
+
+type TimedLeg = LegTimes & { origin: string; destination: string };
+
+/**
+ * True when `leg` is in the air at the same time as one of `others`. Only
+ * two legs with a departure and an arrival each give an answer: a leg with
+ * no times overlaps nothing. `zone` gives the time zone of an airport.
+ */
+export function overlapsLeg(
+	leg: TimedLeg,
+	others: readonly TimedLeg[],
+	zone: (code: string) => string | undefined,
+): boolean {
+	const span = (l: TimedLeg) => {
+		const from = zone(l.origin);
+		const to = zone(l.destination);
+		const { departure, arrival } =
+			from && to
+				? legInstants(l, from, to)
+				: { departure: null, arrival: null };
+		return departure !== null && arrival !== null
+			? { departure, arrival }
+			: null;
+	};
+	const mine = span(leg);
+	return (
+		mine !== null &&
+		others.some((other) => {
+			const theirs = span(other);
+			return (
+				theirs !== null &&
+				mine.departure < theirs.arrival &&
+				theirs.departure < mine.arrival
+			);
+		})
+	);
 }

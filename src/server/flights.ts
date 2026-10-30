@@ -9,6 +9,7 @@ import {
 	flightInputSchema,
 	UUID,
 } from "../shared/flight.ts";
+import { overlapsLeg } from "../shared/journey.ts";
 import { airports } from "./airports/index.ts";
 import { flight, journey } from "./db/schema.ts";
 import { type AppEnv, requireSession } from "./session.ts";
@@ -84,6 +85,31 @@ async function ownsJourney(
 	return row !== undefined;
 }
 
+const OVERLAP: FlightIssue[] = [
+	{ path: ["departureTime"], message: "overlaps_leg" },
+];
+
+const zoneOf = (code: string) => airports.get(code)?.tz;
+
+/** True when the flight is in the air at the same time as another flight of the journey. */
+async function overlapsJourney(
+	db: DrizzleD1Database,
+	ownerId: string,
+	journeyId: string,
+	leg: FlightInput,
+	flightId?: string,
+): Promise<boolean> {
+	const legs = await db
+		.select()
+		.from(flight)
+		.where(and(eq(flight.journeyId, journeyId), eq(flight.ownerId, ownerId)));
+	return overlapsLeg(
+		leg,
+		legs.filter((other) => other.id !== flightId),
+		zoneOf,
+	);
+}
+
 /** A journey holds one flight or more: this statement deletes each empty journey of the owner. */
 function deleteEmptyJourneys(db: DrizzleD1Database, ownerId: string) {
 	return db
@@ -125,6 +151,12 @@ export const flightRoutes = new Hono<AppEnv>()
 		const { journeyId, ...fields } = result.flight;
 		if (journeyId !== null && !(await ownsJourney(db, ownerId, journeyId))) {
 			return c.json({ error: "invalid_flight", issues: UNKNOWN_JOURNEY }, 400);
+		}
+		if (
+			journeyId !== null &&
+			(await overlapsJourney(db, ownerId, journeyId, result.flight))
+		) {
+			return c.json({ error: "invalid_flight", issues: OVERLAP }, 400);
 		}
 		const now = new Date();
 		const target = journeyId ?? crypto.randomUUID();
@@ -221,6 +253,12 @@ export const flightRoutes = new Hono<AppEnv>()
 		const target = leaves
 			? crypto.randomUUID()
 			: (journeyId ?? current.journeyId);
+		if (
+			!leaves &&
+			(await overlapsJourney(db, ownerId, target, result.flight, id))
+		) {
+			return c.json({ error: "invalid_flight", issues: OVERLAP }, 400);
+		}
 		const update = db
 			.update(flight)
 			.set({ ...fields, journeyId: target, updatedAt: now })

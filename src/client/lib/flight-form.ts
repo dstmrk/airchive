@@ -40,7 +40,8 @@ export type IssueCode =
 	| "same_airport"
 	| "arrival_before_departure"
 	| "unknown_airport"
-	| "unknown_journey";
+	| "unknown_journey"
+	| "overlaps_leg";
 
 export type FieldIssues = Partial<Record<FormField, IssueCode>>;
 
@@ -49,6 +50,7 @@ const SPECIFIC: ReadonlySet<string> = new Set([
 	"arrival_before_departure",
 	"unknown_airport",
 	"unknown_journey",
+	"overlaps_leg",
 ]);
 
 export function emptyForm(): FlightFormValues {

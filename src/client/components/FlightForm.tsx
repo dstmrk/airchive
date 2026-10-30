@@ -29,6 +29,7 @@ const ISSUE_TEXT: Record<IssueCode, keyof Messages> = {
 	arrival_before_departure: "issueArrivalBeforeDeparture",
 	unknown_airport: "issueUnknownAirport",
 	unknown_journey: "issueUnknownJourney",
+	overlaps_leg: "issueOverlapsLeg",
 };
 
 const CABIN_TEXT: Record<(typeof CABIN_CLASSES)[number], keyof Messages> = {

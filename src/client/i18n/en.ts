@@ -68,6 +68,8 @@ export const en = {
 	issueSameAirport: "The destination must be different from the origin.",
 	issueArrivalBeforeDeparture: "The arrival cannot be before the departure.",
 	issueUnknownAirport: "We do not know this airport. Choose one from the list.",
+	issueOverlapsLeg:
+		"Another flight of this trip is in the air at this time. Check the times.",
 	issueUnknownJourney:
 		"This trip does not exist now. Choose one from the list.",
 

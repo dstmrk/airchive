@@ -96,17 +96,10 @@ export function darkArea(instant: number, altitude: number): LonLat[] {
 }
 
 /**
- * The instant of the replay for `t` from 0 to 1, to the minute. The
- * terminator moves 0.25 degrees in one minute, thus the map draws it again
- * only at a new minute. With no departure time, there is no instant.
+ * The instant of the replay, to the minute. The terminator moves 0.25
+ * degrees in one minute, thus the map draws it again only at a new minute.
+ * With no departure time, there is no instant.
  */
-export function replayMinute(
-	departure: number | null,
-	durationMs: number,
-	t: number,
-): number | null {
-	if (departure === null) {
-		return null;
-	}
-	return Math.floor((departure + t * durationMs) / MINUTE) * MINUTE;
+export function replayMinute(instant: number | null): number | null {
+	return instant === null ? null : Math.floor(instant / MINUTE) * MINUTE;
 }

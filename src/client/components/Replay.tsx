@@ -1,21 +1,21 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { Airport } from "../../shared/airport.ts";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
-import type { FlightMoment } from "../lib/flight-profile.ts";
-import {
-	clockAt,
-	durationText,
-	type FlightTiming,
-} from "../lib/flight-time.ts";
+import { clockAt, durationText } from "../lib/flight-time.ts";
 import { formatUnit } from "../lib/format.ts";
+import {
+	finalArrival,
+	type JourneyMoment,
+	journeyStretches,
+	landingMarks,
+	type Timeline,
+} from "../lib/journey-replay.ts";
 import {
 	DEFAULT_SPEED,
 	initialReplay,
 	type ReplayState,
 	replay,
-	replayMs,
 	SPEEDS,
 	type SpeedId,
 } from "../lib/replay.ts";
@@ -50,10 +50,13 @@ export function cabinTransition(update: () => void) {
 }
 
 /** The state of the replay and its clock. The cabin opens at the end of the tear. */
-export function useReplay(timing: FlightTiming) {
+export function useReplay(timeline: Timeline) {
 	const [state, dispatch] = useReducer(replay, initialReplay);
 	const [speed, setSpeed] = useState<SpeedId>(DEFAULT_SPEED);
-	const length = replayMs(speed, timing.durationMs);
+	const stretches = useMemo(
+		() => journeyStretches(timeline, speed),
+		[timeline, speed],
+	);
 
 	useEffect(() => {
 		if (state.phase !== "boarding") {
@@ -73,13 +76,13 @@ export function useReplay(timing: FlightTiming) {
 		let frame = 0;
 		let last = performance.now();
 		const step = (now: number) => {
-			dispatch({ type: "tick", ms: now - last, replayMs: length });
+			dispatch({ type: "tick", ms: now - last, stretches });
 			last = now;
 			frame = requestAnimationFrame(step);
 		};
 		frame = requestAnimationFrame(step);
 		return () => cancelAnimationFrame(frame);
-	}, [state.phase, length]);
+	}, [state.phase, stretches]);
 
 	// In real time a flight lasts hours: the screen of a telephone must stay on.
 	useEffect(() => {
@@ -139,24 +142,24 @@ type ReplayControlsProps = Readonly<{
 	dispatch: (event: Parameters<typeof replay>[1]) => void;
 	speed: SpeedId;
 	onSpeed: (id: SpeedId) => void;
-	timing: FlightTiming;
-	moment: FlightMoment;
-	origin: Airport;
-	destination: Airport;
+	timeline: Timeline;
+	view: JourneyMoment;
 }>;
 
 /** The data of the flight, as on the screen of a cabin. */
 function InflightPanel({
-	moment,
+	view,
 	remainingMs,
 	arrival,
-	destination,
+	zone,
 }: Readonly<{
-	moment: FlightMoment;
+	view: JourneyMoment;
 	remainingMs: number;
 	arrival: number | null;
-	destination: Airport;
+	/** The time zone of the final destination. */
+	zone: string;
 }>) {
+	const { moment } = view;
 	const text = useText();
 	const locale = document.documentElement.lang;
 	const item = (label: string, value: string, detail?: string) => (
@@ -179,14 +182,14 @@ function InflightPanel({
 		>
 			{item(
 				text.inflightDistance,
-				formatUnit(moment.remainingKm, "kilometer", locale),
+				formatUnit(view.remainingKm, "kilometer", locale),
 			)}
 			{item(
 				text.inflightTime,
 				durationText(remainingMs),
 				arrival === null
 					? undefined
-					: `${text.inflightEta} ${clockAt(arrival, destination.tz)}`,
+					: `${text.inflightEta} ${clockAt(arrival, zone)}`,
 			)}
 			{item(
 				text.inflightSpeed,
@@ -200,23 +203,52 @@ function InflightPanel({
 	);
 }
 
+/** The local times of the airports of the leg, or of the airport of the stop. */
+function Clocks({
+	timeline,
+	view,
+}: Readonly<{ timeline: Timeline; view: JourneyMoment }>) {
+	const leg = timeline.legs[view.leg];
+	const now = view.instant;
+	if (leg === undefined || now === null) {
+		return null;
+	}
+	const clock = (iata: string, zone: string) => (
+		<>
+			{iata} <b>{clockAt(now, zone)}</b>
+		</>
+	);
+	return (
+		<span>
+			{view.stop ? (
+				clock(leg.destination.iata, leg.destination.tz)
+			) : (
+				<>
+					{clock(leg.origin.iata, leg.origin.tz)}
+					{" · "}
+					{clock(leg.destination.iata, leg.destination.tz)}
+				</>
+			)}
+		</span>
+	);
+}
+
 /** The controls under the map: play, the timeline, the clocks and the speeds. */
 export function ReplayControls({
 	state,
 	dispatch,
 	speed,
 	onSpeed,
-	timing,
-	moment,
-	origin,
-	destination,
+	timeline,
+	view,
 }: ReplayControlsProps) {
 	const text = useText();
 	const more = useRef<HTMLDetailsElement>(null);
 	const playing = state.phase === "playing" || state.phase === "boarding";
-	const elapsed = state.t * timing.durationMs;
-	const now = timing.departure === null ? null : timing.departure + elapsed;
-	const progress = `${durationText(elapsed)} / ${durationText(timing.durationMs)}`;
+	const total = timeline.totalMs;
+	const progress = `${durationText(view.elapsedMs)} / ${durationText(total)}`;
+	const estimated = timeline.legs.some((leg) => leg.timing.estimated);
+	const destination = timeline.legs.at(-1)?.destination;
 
 	const chip = (id: SpeedId, className = "") => (
 		<button
@@ -255,42 +287,44 @@ export function ReplayControls({
 				>
 					<PlayIcon playing={playing} />
 				</button>
-				<input
-					type="range"
-					min={0}
-					max={1000}
-					value={Math.round(state.t * 1000)}
-					aria-label={text.replayTimeline}
-					aria-valuetext={progress}
-					onChange={(event) =>
-						dispatch({ type: "seek", t: Number(event.target.value) / 1000 })
-					}
-					className="h-11 min-w-0 flex-1 accent-pass-accent"
-				/>
+				<div className="relative min-w-0 flex-1">
+					<input
+						type="range"
+						min={0}
+						max={1000}
+						value={Math.round(state.t * 1000)}
+						aria-label={text.replayTimeline}
+						aria-valuetext={progress}
+						onChange={(event) =>
+							dispatch({ type: "seek", t: Number(event.target.value) / 1000 })
+						}
+						className="h-11 w-full accent-pass-accent"
+					/>
+					{/* A mark for each landing before the final destination. The thumb is approximately 16 px wide. */}
+					{landingMarks(timeline).map((mark) => (
+						<span
+							key={mark}
+							aria-hidden="true"
+							style={{ left: `calc(8px + (100% - 16px) * ${mark})` }}
+							className="-translate-x-1/2 pointer-events-none absolute bottom-1 h-1.5 w-0.5 rounded-full bg-pass-accent"
+						/>
+					))}
+				</div>
 			</div>
 			<InflightPanel
-				moment={moment}
-				remainingMs={timing.durationMs - elapsed}
-				arrival={
-					timing.departure === null
-						? null
-						: timing.departure + timing.durationMs
-				}
-				destination={destination}
+				view={view}
+				remainingMs={total - view.elapsedMs}
+				arrival={finalArrival(timeline)}
+				zone={destination?.tz ?? "UTC"}
 			/>
 			<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[13px]">
-				{now === null ? (
+				{view.instant === null ? (
 					<span>{progress}</span>
 				) : (
-					<span>
-						{origin.iata} <b>{clockAt(now, origin.tz)}</b>
-						{" · "}
-						{destination.iata} <b>{clockAt(now, destination.tz)}</b>
-					</span>
+					<Clocks timeline={timeline} view={view} />
 				)}
 				<span className="font-sans text-muted-foreground text-xs">
-					{timing.estimated &&
-						`${text.replayEstimated} ${durationText(timing.durationMs)} · `}
+					{estimated && `${text.replayEstimated} ${durationText(total)} · `}
 					{text.inflightSimulated}
 				</span>
 			</div>

@@ -69,6 +69,8 @@ export const it: Messages = {
 	issueArrivalBeforeDeparture: "L'arrivo non può essere prima della partenza.",
 	issueUnknownAirport:
 		"Non conosciamo questo aeroporto. Scegline uno dalla lista.",
+	issueOverlapsLeg:
+		"Un altro volo di questo viaggio è in aria a quest'ora. Controlla gli orari.",
 	issueUnknownJourney:
 		"Questo viaggio non esiste più. Scegline uno dalla lista.",
 

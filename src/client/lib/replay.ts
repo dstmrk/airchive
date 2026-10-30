@@ -83,6 +83,41 @@ export function replayMs(id: SpeedId, flightMs: number): number {
 }
 
 /**
+ * A part of the timeline: `width` is its part of `t`, and `ms` is its length
+ * in the replay. A part with no length is skipped: the replay goes through
+ * it in no time. The widths of a timeline make 1.
+ */
+export type Stretch = { width: number; ms: number };
+
+/**
+ * The `t` after `ms` of replay from `t`. Each part has its own speed, thus
+ * one step can go across the end of a part into the next one.
+ */
+export function advance(
+	stretches: readonly Stretch[],
+	t: number,
+	ms: number,
+): number {
+	let now = Math.min(1, Math.max(0, t));
+	let left = ms;
+	let start = 0;
+	for (const { width, ms: length } of stretches) {
+		const end = start + width;
+		if (now < end) {
+			const rest = end - now;
+			const needed = length * (rest / width);
+			if (needed > left) {
+				return now + (left / length) * width;
+			}
+			left -= needed;
+			now = end;
+		}
+		start = end;
+	}
+	return 1;
+}
+
+/**
  * - `idle`: the stub is on the pass, and the aircraft is at the origin.
  * - `boarding`: the stub tears.
  * - `playing` and `paused`: the stub is off. The map fills the screen.
@@ -98,7 +133,7 @@ export type ReplayEvent =
 	| { type: "play" }
 	| { type: "boarded" }
 	| { type: "pause" }
-	| { type: "tick"; ms: number; replayMs: number }
+	| { type: "tick"; ms: number; stretches: readonly Stretch[] }
 	| { type: "seek"; t: number }
 	| { type: "stop" };
 
@@ -130,7 +165,7 @@ export function replay(state: ReplayState, event: ReplayEvent): ReplayState {
 			if (state.phase !== "playing") {
 				return state;
 			}
-			const t = Math.min(1, state.t + event.ms / event.replayMs);
+			const t = advance(event.stretches, state.t, event.ms);
 			return t >= 1 ? { phase: "landed", t: 1 } : { ...state, t };
 		}
 		case "seek":

@@ -14,7 +14,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { Airport } from "../shared/airport.ts";
 import type { FlightView } from "../shared/flight.ts";
 import type { JourneyView } from "../shared/journey.ts";
 import { PaperPass } from "./components/PaperPass.tsx";
@@ -26,10 +25,13 @@ import {
 import { RequireSession } from "./components/RequireSession.tsx";
 import { useText } from "./i18n/I18nProvider.tsx";
 import { syncCabin } from "./lib/cabin.ts";
-import { flightProfile, momentAt } from "./lib/flight-profile.ts";
-import { flightTiming } from "./lib/flight-time.ts";
-import { distanceKm } from "./lib/great-circle.ts";
-import { journeyTitle } from "./lib/journey.ts";
+import { journeyChains, journeyTitle } from "./lib/journey.ts";
+import {
+	type JourneyLeg,
+	journeyLegs,
+	journeyMomentAt,
+	journeyTimeline,
+} from "./lib/journey-replay.ts";
 import { useJourney, useRenameJourney } from "./lib/queries.ts";
 import { inCabin, isTorn } from "./lib/replay.ts";
 import { replayMinute } from "./lib/terminator.ts";
@@ -53,8 +55,11 @@ function JourneyDetail() {
 	const text = useText();
 	const { journeyId } = useParams({ from: "/journeys/$journeyId" });
 	const { data: journey, isPending, isError } = useJourney(journeyId);
-	const locale = document.documentElement.lang;
-	const [single] = journey?.flights.length === 1 ? journey.flights : [];
+	// A new array at each render would restart the clock of the replay.
+	const legs = useMemo(
+		() => journey && journeyLegs(journey.flights),
+		[journey],
+	);
 
 	return (
 		<main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 has-[>[data-cabin]]:*:not-data-cabin:invisible">
@@ -67,29 +72,41 @@ function JourneyDetail() {
 			{isPending && <p className="text-muted-foreground">{text.loading}</p>}
 			{isError && <p role="alert">{text.journeyNotFound}</p>}
 			{journey && <JourneyTitle journey={journey} />}
-			{journey?.flights.map((flight) => (
-				<section key={flight.id} className="flex flex-col gap-2">
-					<Link
-						to="/flights/$flightId/edit"
-						params={{ flightId: flight.id }}
-						className="self-end font-medium text-sm underline underline-offset-4"
-					>
-						{text.editFlight}
-					</Link>
-					{flight === single &&
-					flight.originAirport &&
-					flight.destinationAirport ? (
-						<FlightReplay
-							flight={flight}
-							origin={flight.originAirport}
-							destination={flight.destinationAirport}
-						/>
-					) : (
-						<PaperPass flight={flight} locale={locale} />
-					)}
-				</section>
-			))}
+			{journey &&
+				(legs ? (
+					<JourneyReplay flights={journey.flights} legs={legs} />
+				) : (
+					journey.flights.map((flight) => (
+						<Pass key={flight.id} flight={flight} />
+					))
+				))}
 		</main>
+	);
+}
+
+/** The pass of one leg, with the link to its form. */
+function Pass({
+	flight,
+	torn,
+	onRelive,
+}: Readonly<{ flight: FlightView; torn?: boolean; onRelive?: () => void }>) {
+	const text = useText();
+	return (
+		<section className="flex flex-col gap-2">
+			<Link
+				to="/flights/$flightId/edit"
+				params={{ flightId: flight.id }}
+				className="self-end font-medium text-sm underline underline-offset-4"
+			>
+				{text.editFlight}
+			</Link>
+			<PaperPass
+				flight={flight}
+				locale={document.documentElement.lang}
+				torn={torn}
+				onRelive={onRelive}
+			/>
+		</section>
 	);
 }
 
@@ -183,44 +200,24 @@ function CloseIcon() {
 }
 
 /**
- * The pass, the map and the replay. The stub of the pass starts the replay.
- * At the end of the tear, the map and the controls fill the screen: the cabin.
- * The button "close", the key Escape and the button "back" of the browser
- * close the cabin and give the pass again.
+ * The passes, the map and the replay of each leg. The stub of the first pass
+ * starts the replay. At the end of the tear, the map and the controls fill the
+ * screen: the cabin. The button "close", the key Escape and the button "back"
+ * of the browser close the cabin and give the passes again.
  */
-function FlightReplay({
-	flight,
-	origin,
-	destination,
-}: Readonly<{ flight: FlightView; origin: Airport; destination: Airport }>) {
+function JourneyReplay({
+	flights,
+	legs,
+}: Readonly<{ flights: FlightView[]; legs: JourneyLeg[] }>) {
 	const text = useText();
 	const router = useRouter();
 	const navigate = useNavigate({ from: "/journeys/$journeyId" });
 	const { replay: inUrl = false } = useSearch({ from: "/journeys/$journeyId" });
-	const timing = useMemo(
-		() =>
-			flightTiming({
-				...flight,
-				originAirport: origin,
-				destinationAirport: destination,
-			}),
-		[flight, origin, destination],
-	);
-	const profile = useMemo(
-		() =>
-			flightProfile(
-				distanceKm(
-					[origin.lon, origin.lat],
-					[destination.lon, destination.lat],
-				),
-				timing.durationMs,
-			),
-		[origin, destination, timing],
-	);
-	const { state, dispatch, speed, setSpeed } = useReplay(timing);
+	const timeline = useMemo(() => journeyTimeline(legs), [legs]);
+	const { state, dispatch, speed, setSpeed } = useReplay(timeline);
 	const started = state.phase !== "idle";
 	const cabin = inCabin(state);
-	const moment = momentAt(profile, state.t);
+	const view = journeyMomentAt(timeline, state.t);
 	const wasInUrl = useRef(inUrl);
 
 	useEffect(() => {
@@ -269,12 +266,14 @@ function FlightReplay({
 
 	return (
 		<>
-			<PaperPass
-				flight={flight}
-				locale={document.documentElement.lang}
-				torn={isTorn(state)}
-				onRelive={() => dispatch({ type: "play" })}
-			/>
+			{flights.map((flight, index) => (
+				<Pass
+					key={flight.id}
+					flight={flight}
+					torn={index === 0 && isTorn(state)}
+					onRelive={index === 0 ? () => dispatch({ type: "play" }) : undefined}
+				/>
+			))}
 			{/* One element in the two places: React keeps the map, and the view transition moves it.
 			    Under the cabin, the rest of the page is invisible, thus the focus cannot go there. */}
 			<div
@@ -289,7 +288,9 @@ function FlightReplay({
 				{cabin && (
 					<div className="flex items-center justify-between gap-2 pl-4">
 						<span className="font-bold font-mono text-[15px]">
-							{origin.iata} → {destination.iata}
+							{journeyChains(flights)
+								.map((chain) => chain.join(" → "))
+								.join(" · ")}
 						</span>
 						<button
 							type="button"
@@ -315,14 +316,9 @@ function FlightReplay({
 					}
 				>
 					<FlightMap
-						origin={origin}
-						destination={destination}
-						progress={started ? moment.fraction : null}
-						instant={
-							started
-								? replayMinute(timing.departure, timing.durationMs, state.t)
-								: null
-						}
+						timeline={timeline}
+						view={started ? view : null}
+						instant={started ? replayMinute(view.instant) : null}
 						cabin={cabin}
 					/>
 				</Suspense>
@@ -333,10 +329,8 @@ function FlightReplay({
 							dispatch={dispatch}
 							speed={speed}
 							onSpeed={setSpeed}
-							timing={timing}
-							moment={moment}
-							origin={origin}
-							destination={destination}
+							timeline={timeline}
+							view={view}
 						/>
 					</div>
 				)}

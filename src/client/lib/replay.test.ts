@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { greatCircle, type LonLat } from "./great-circle.ts";
 import {
+	advance,
 	DEFAULT_SPEED,
 	flownRoute,
 	inCabin,
@@ -109,6 +110,38 @@ describe("replayMs", () => {
 	});
 });
 
+describe("advance", () => {
+	const flights = [
+		{ width: 0.4, ms: 4000 },
+		{ width: 0.2, ms: 0 },
+		{ width: 0.4, ms: 2000 },
+	];
+
+	it("moves t at the speed of its part", () => {
+		expect(advance(flights, 0.1, 1000)).toBeCloseTo(0.2);
+		expect(advance(flights, 0.6, 1000)).toBeCloseTo(0.8);
+	});
+
+	it("goes across the end of a part at the speed of the next part", () => {
+		// 1000 ms to the end of the first part, then 1000 ms of the last part: the second part has no length.
+		expect(advance(flights, 0.3, 2000)).toBeCloseTo(0.8);
+	});
+
+	it("skips a part with no length", () => {
+		expect(advance(flights, 0.4, 0)).toBeCloseTo(0.6);
+		expect(advance(flights, 0.5, 1)).toBeCloseTo(0.6002);
+	});
+
+	it("stops at 1", () => {
+		expect(advance(flights, 0.9, 60_000)).toBe(1);
+		expect(advance(flights, 1, 10)).toBe(1);
+	});
+
+	it("gives the same t for no time in a part with a length", () => {
+		expect(advance(flights, 0.1, 0)).toBeCloseTo(0.1);
+	});
+});
+
 describe("replay", () => {
 	const at = (phase: ReplayState["phase"], t: number): ReplayState => ({
 		phase,
@@ -128,24 +161,40 @@ describe("replay", () => {
 
 	it("moves t with the time and the length of the replay", () => {
 		expect(
-			replay(at("playing", 0.25), { type: "tick", ms: 500, replayMs: 2000 }),
+			replay(at("playing", 0.25), {
+				type: "tick",
+				ms: 500,
+				stretches: [{ width: 1, ms: 2000 }],
+			}),
 		).toEqual(at("playing", 0.5));
 	});
 
 	it("lands at t = 1", () => {
 		expect(
-			replay(at("playing", 0.9), { type: "tick", ms: 500, replayMs: 1000 }),
+			replay(at("playing", 0.9), {
+				type: "tick",
+				ms: 500,
+				stretches: [{ width: 1, ms: 1000 }],
+			}),
 		).toEqual(at("landed", 1));
 	});
 
 	it("moves t only when it plays", () => {
 		const paused = at("paused", 0.3);
 
-		expect(replay(paused, { type: "tick", ms: 500, replayMs: 1000 })).toBe(
-			paused,
-		);
 		expect(
-			replay(at("boarding", 0), { type: "tick", ms: 500, replayMs: 1000 }),
+			replay(paused, {
+				type: "tick",
+				ms: 500,
+				stretches: [{ width: 1, ms: 1000 }],
+			}),
+		).toBe(paused);
+		expect(
+			replay(at("boarding", 0), {
+				type: "tick",
+				ms: 500,
+				stretches: [{ width: 1, ms: 1000 }],
+			}),
 		).toEqual(at("boarding", 0));
 	});
 

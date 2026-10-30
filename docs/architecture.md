@@ -270,6 +270,10 @@ one journey.
   flight to a new journey. A flight that is alone in its journey keeps that journey and
   its title.
 - After each change of a flight, one statement deletes each empty journey of the owner.
+- Two legs of one journey must not be in the air at the same time. The API gives 400 with
+  `overlaps_leg` on `departureTime`. Only two legs with a departure time and an arrival
+  time each give this check. `src/shared/zoned-time.ts` gives the instants to the
+  client and to the Worker.
 - The API gives the legs in order. The chain of the airports decides first: the next leg
   departs from the destination of the previous leg. The date and the local time decide
   where no chain decides.
@@ -594,6 +598,30 @@ zone of each airport give it. With no arrival time, the estimate is the distance
 800 km/h, plus 30 minutes for the taxi, the take-off and the landing. The person corrects
 the duration with the arrival time in the form. During the replay, the local time of
 each airport moves. With no departure time, the controls show the time of the flight.
+
+#### A journey of more legs
+
+`src/client/lib/journey-replay.ts` holds the logic of a journey, with tests. The replay
+of one flight is a journey of one leg: the page has one path.
+
+- `t` from 0 to 1 is the real time from the first departure to the last arrival. The
+  stops between the legs are parts of that time. Thus a change of the speed does not
+  move the aircraft.
+- A stop is the time from an arrival to the next departure. With no departure time on
+  one of the two legs, the stop is unknown and has no length.
+- Each part of the timeline has its speed (`Stretch` and `advance` in `replay.ts`). The
+  flights share the length of the replay by their duration. The replay skips each stop
+  in no time: at the landing, the clocks go to the next departure.
+- During a stop, the aircraft stays at the airport, with a speed and an altitude of 0.
+  The controls show the clock of that airport.
+- The routes of the legs are continuous: the longitudes go on across the antimeridian
+  from one leg to the next.
+- A leg that departs from another airport of the city (Heathrow, then Gatwick) gives a
+  dotted line on the ground between the two airports.
+- The distance and the time to go are to the final destination. A mark under the
+  timeline shows each landing before the final destination.
+- The stub of the first pass starts the replay. With an airport that is not in the
+  dataset, the page shows only the passes.
 
 `src/client/lib/flight-profile.ts` gives a simulated speed and altitude, because the pass
 gives no real data:

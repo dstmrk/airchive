@@ -5,7 +5,6 @@ import {
 	durationText,
 	estimatedDurationMs,
 	flightTiming,
-	zonedInstant,
 } from "./flight-time.ts";
 
 const airport = (
@@ -31,32 +30,6 @@ const JFK = airport("JFK", -73.7781, 40.6413, "America/New_York");
 
 const hour = 3_600_000;
 const minute = 60_000;
-
-describe("zonedInstant", () => {
-	it("reads a wall-clock time in a time zone", () => {
-		expect(
-			new Date(
-				zonedInstant("2024-05-12", "13:05", "Europe/Rome"),
-			).toISOString(),
-		).toBe("2024-05-12T11:05:00.000Z");
-	});
-
-	it("uses the offset of winter in winter", () => {
-		expect(
-			new Date(
-				zonedInstant("2024-01-12", "13:05", "Europe/Rome"),
-			).toISOString(),
-		).toBe("2024-01-12T12:05:00.000Z");
-	});
-
-	it("reads a zone west of Greenwich", () => {
-		expect(
-			new Date(
-				zonedInstant("2024-11-03", "08:40", "America/New_York"),
-			).toISOString(),
-		).toBe("2024-11-03T13:40:00.000Z");
-	});
-});
 
 describe("clockAt", () => {
 	it("gives the local time of an instant at an airport", () => {
