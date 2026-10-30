@@ -168,6 +168,14 @@ A `.pkpass` file is not trusted. `src/client/lib/pkpass/extract.ts` applies thes
 | A false name | Only the exact name `pass.json`. A path such as `evil/pass.json` is not the pass. |
 | Hostile values | Each value must have the expected type and a length limit. React writes text, never HTML. |
 
+The file input has no `accept` attribute. With
+`accept=".pkpass,application/vnd.apple.pkpass"`, Safari on iOS showed a `.pkpass` file
+in Files as grey, and the person could not select it. The attribute was only a filter of
+the picker: the content of the file decides, with the limits above.
+
+On an iPhone, a pass that is only in Wallet is not a file. The person saves the
+`.pkpass` attachment of an email, or the download of the airline, to Files first.
+
 The import does not verify the signature of the pass. The form and its schema examine
 the data, and an archive of keepsakes needs no proof of origin.
 
