@@ -90,13 +90,11 @@ export function PaperPass({
 						? ({ "--color-pass-accent": pass.accent } as CSSProperties)
 						: undefined
 				}
-				className="flex flex-col text-foreground @min-[640px]:flex-row"
+				className="pass-shadow flex flex-col text-foreground @min-[640px]:flex-row"
 			>
 				{/* The body and the stub each have their paper: when the stub tears, the background shows. */}
-				<div className="relative flex min-w-0 flex-1 flex-col rounded-t-[14px] bg-paper shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:rounded-l-[14px] @min-[640px]:rounded-tr-none">
-					{/* The two notches of the perforation stay on the body after the tear: at the bottom on a telephone, on the right from 640 px. */}
-					<div className="absolute -bottom-[13px] -left-3 z-10 size-6 rounded-full bg-background @min-[640px]:-top-3 @min-[640px]:-right-[13px] @min-[640px]:bottom-auto @min-[640px]:left-auto" />
-					<div className="absolute -right-3 -bottom-[13px] z-10 size-6 rounded-full bg-background @min-[640px]:-right-[13px] @min-[640px]:-bottom-3" />
+				{/* The notches of the perforation stay on the body after the tear: at the bottom on a telephone, on the right from 640 px. */}
+				<div className="notched flex min-w-0 flex-1 flex-col rounded-t-[14px] bg-paper [--notch-a:0_100%] [--notch-b:100%_100%] @min-[640px]:rounded-l-[14px] @min-[640px]:rounded-tr-none @min-[640px]:[--notch-a:100%_0]">
 					<div className="h-2.5 rounded-t-[14px] bg-pass-accent @min-[640px]:rounded-tr-none" />
 					<div className="flex flex-1 flex-col gap-4 px-5 pt-4 pb-5 @min-[640px]:px-6">
 						<div className="flex min-h-7 items-center justify-between gap-2">
@@ -171,7 +169,7 @@ export function PaperPass({
 				{/* The stub tears along the perforation: the transform and the opacity, as at the gate. */}
 				<div
 					inert={torn}
-					className={`relative flex origin-top-left flex-col rounded-b-[14px] border-perforation border-t-2 border-dashed bg-paper shadow-[0_1px_0_#d8cfbd,0_10px_24px_rgba(60,45,20,0.12)] @min-[640px]:rounded-r-[14px] @min-[640px]:rounded-bl-none transition-[transform,opacity] duration-700 ease-in motion-reduce:transition-none @min-[640px]:w-[196px] @min-[640px]:shrink-0 @min-[640px]:border-t-0 @min-[640px]:border-l-2 ${
+					className={`notched relative flex origin-top-left flex-col rounded-b-[14px] border-perforation border-t-2 border-dashed bg-paper [--notch-a:0_0] [--notch-b:100%_0] @min-[640px]:rounded-r-[14px] @min-[640px]:[--notch-b:0_100%] @min-[640px]:rounded-bl-none transition-[transform,opacity] duration-700 ease-in motion-reduce:transition-none @min-[640px]:w-[196px] @min-[640px]:shrink-0 @min-[640px]:border-t-0 @min-[640px]:border-l-2 ${
 						torn
 							? "translate-x-3 translate-y-10 rotate-6 opacity-0 @min-[640px]:translate-x-14 @min-[640px]:translate-y-4 @min-[640px]:rotate-12"
 							: ""
