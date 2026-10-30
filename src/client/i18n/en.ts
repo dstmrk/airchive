@@ -89,7 +89,7 @@ export const en = {
 	passNoValue: "—",
 	passLogoTrademark: "The logo of the airline is a trademark of its owner.",
 
-	relive: "Relive your flight",
+	tearToRelive: "Tear to relive your flight",
 	replayLabel: "Replay of the flight",
 	replayClose: "Close the replay",
 	replayPlay: "Play",

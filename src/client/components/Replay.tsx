@@ -19,10 +19,8 @@ import {
 	SPEEDS,
 	type SpeedId,
 } from "../lib/replay.ts";
+import { reducedMotion, TEAR_MS } from "../lib/tear.ts";
 import { withViewTransition } from "../lib/view-transition.ts";
-
-/** The time of the tear of the stub. It is also the duration of its CSS transition. */
-export const TEAR_MS = 700;
 
 const SPEED_TEXT: Record<SpeedId, keyof Messages> = {
 	"15s": "speed15s",
@@ -36,9 +34,6 @@ const SPEED_TEXT: Record<SpeedId, keyof Messages> = {
 /** A long replay is a multiple of the real time. On a telephone it is in the menu "⋯". */
 const isLong = (id: SpeedId) =>
 	SPEEDS.some((speed) => speed.id === id && "factor" in speed);
-
-const reducedMotion = () =>
-	globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
 /**
  * Animates the opening and the closing of the cabin. The element with the
