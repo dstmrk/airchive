@@ -330,6 +330,7 @@ function JourneyReplay({
 						view={started ? view : null}
 						instant={started ? replayMinute(view.instant) : null}
 						cabin={cabin}
+						playing={state.phase === "playing"}
 					/>
 				</Suspense>
 				{cabin && (
