@@ -141,6 +141,47 @@ describe("momentAt", () => {
 		expect(Math.round(touchdown?.kmh ?? 0)).toBe(260);
 	});
 
+	it("gives the start of each phase, in order", () => {
+		const paris = flightProfile(1100, 130 * MINUTE);
+		const starts = Object.fromEntries(
+			paris.phases.map((phase) => [phase.id, phase.startMs]),
+		);
+
+		expect(paris.phases.map((phase) => phase.id)).toEqual([
+			"gateOut",
+			"takeOff",
+			"climb",
+			"cruise",
+			"descent",
+			"landing",
+			"gateIn",
+		]);
+		expect(starts.gateOut).toBe(0);
+		expect(starts.takeOff).toBeCloseTo(paris.gateOutMs, 6);
+		expect(sinceGate(paris, starts.climb ?? 0).altitudeM).toBe(900);
+		expect(sinceGate(paris, starts.cruise ?? 0).altitudeM).toBe(
+			CRUISE_ALTITUDE_M,
+		);
+		expect(sinceGate(paris, (starts.descent ?? 0) - SECOND).altitudeM).toBe(
+			CRUISE_ALTITUDE_M,
+		);
+		expect(sinceGate(paris, starts.landing ?? 0).altitudeM).toBe(900);
+		expect(starts.gateIn).toBeCloseTo(paris.durationMs - paris.gateInMs, 6);
+		for (let i = 1; i < paris.phases.length; i += 1) {
+			expect(paris.phases[i]?.startMs).toBeGreaterThanOrEqual(
+				paris.phases[i - 1]?.startMs ?? 0,
+			);
+		}
+	});
+
+	it("gives a climb with no length to a hop below 900 m", () => {
+		const tiny = flightProfile(20, 4 * MINUTE);
+		const [, , climb, cruise] = tiny.phases;
+
+		expect(tiny.cruiseAltitudeM).toBeLessThan(900);
+		expect(climb?.startMs).toBeCloseTo(cruise?.startMs ?? 0, 6);
+	});
+
 	it("does not wait when the flight needs all its time", () => {
 		expect(long.gateOutMs).toBe(0);
 		expect(long.gateInMs).toBe(0);

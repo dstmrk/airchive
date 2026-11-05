@@ -677,6 +677,23 @@ gives no real data:
 - The aircraft on the map moves with that speed: it is slow near the airports. The
   timeline and the clocks stay linear in time.
 
+Under the map, a line shows the phase of the flight and the time to the next phase, for
+example "At the gate · Take-off in 21 minutes". `src/client/lib/flight-phase.ts` holds the
+logic, with tests:
+
+- The phases are "At the gate", "Take-off", "Climb", "Cruise", "Descent", "Landing" and
+  "Layover". The take-off ends and the landing starts at 900 m (3,000 ft). The profile
+  gives the start of each phase.
+- A phase with no length is skipped. A flight with no wait starts with the take-off.
+- At the gate after the landing, the next event is the next departure. At the final gate,
+  the line shows only the phase.
+- The time is in real time, rounded up: seconds in the last minute, minutes below one
+  hour, then hours and minutes. `Intl.NumberFormat` and `Intl.ListFormat` give the
+  singular and the plural of each locale, for example "1 minuto" and "21 minuti".
+- The catalogue holds one text for each next event, with the place `{time}`, for example
+  "Decollo tra {time}". `fillText` of `src/client/lib/format.ts` puts the time in it. A
+  test finds a text of a next event with no `{time}`.
+
 Under the map, in the cabin, a panel shows the distance to go, the time to go, the ETA in the time
 zone of the destination, the ground speed and the altitude. The units are metric: km,
 km/h and m. The ETA needs a departure time. A text tells the person that the speed and

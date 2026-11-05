@@ -58,3 +58,15 @@ describe("the Italian catalogue", () => {
 		expect(untranslated).toEqual([]);
 	});
 });
+
+describe("the text of the next phase", () => {
+	it.each(LOCALES)("holds the place of the time in %s", (locale) => {
+		const missing = Object.entries(messages[locale])
+			.filter(
+				([key, value]) => key.startsWith("next") && !value.includes("{time}"),
+			)
+			.map(([key]) => key);
+
+		expect(missing).toEqual([]);
+	});
+});
