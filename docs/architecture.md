@@ -642,14 +642,27 @@ of one flight is a journey of one leg: the page has one path.
 `src/client/lib/flight-profile.ts` gives a simulated speed and altitude, because the pass
 gives no real data:
 
-- The altitude is a trapezium. The climb is 9 m/s (approximately 1,800 ft/min) and the
-  descent is 7.5 m/s (approximately 1,500 ft/min), to a cruise at 11,000 m.
-- The climb and the descent use a maximum of 2/3 of the duration. Thus a short flight
-  has a lower cruise altitude.
-- The speed is a trapezium on the same times: it starts at 0, increases linearly,
-  stays constant and decreases linearly to 0.
-- The cruise speed makes the area of the trapezium equal to the distance. Thus the
-  speed and the duration agree with the distance of the great circle.
+- A table of points of a typical airliner gives the profile. Between two points, the
+  speed and the altitude are linear. The distance is the exact area under the speed.
+- The aircraft taxis for 1 minute at 30 km/h at each airport. A real taxi is longer, but
+  a replay in real time does not wait for it. The ground uses a maximum of 1/4 of a
+  flight of a few minutes.
+- The take-off run takes 35 s to 280 km/h. The landing run takes 30 s from 260 km/h to
+  the taxi speed.
+- The climb is quick at a low altitude and slow near the cruise. The aircraft is at FL100
+  after approximately 4 minutes, and at 11,000 m after approximately 22 minutes. The
+  descent takes approximately 22 minutes.
+- Up to FL100, the speeds are fixed: 250 kt (540 km/h TAS) at FL100. Above FL100, the
+  speed goes to the cruise speed.
+- The climb and the descent use a maximum of 2/3 of the time in the air. Thus a short
+  flight has a lower cruise altitude.
+- The cruise speed makes the distance of the profile equal to the distance of the great
+  circle. The duration is from gate to gate, thus the cruise also gets the rest of the
+  real time at the gate. The take-off and the landing keep their speeds.
+- When the cruise is slower than 540 km/h, all the speeds in the air become slower by
+  the same factor. A short hop then takes off at the speed of a turboprop.
+- One profile applies to all the speeds of the replay. Thus a change of the speed does
+  not move the aircraft.
 - The aircraft on the map moves with that speed: it is slow near the airports. The
   timeline and the clocks stay linear in time.
 

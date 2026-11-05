@@ -1,51 +1,77 @@
 import { describe, expect, it } from "vitest";
 import {
-	CLIMB_MS,
 	CRUISE_ALTITUDE_M,
-	DESCENT_MS,
+	type FlightProfile,
 	flightProfile,
 	momentAt,
+	TAXI_MS,
 } from "./flight-profile.ts";
 
 const HOUR = 3_600_000;
 const MINUTE = 60_000;
+const SECOND = 1000;
 
 // Rome to Tokyo in 12 hours, and Rome to Milan in 1 hour.
 const long = flightProfile(9850, 12 * HOUR);
 const short = flightProfile(480, HOUR);
+const hop = flightProfile(150, 30 * MINUTE);
+
+/** The moment `ms` after the departure from the gate. */
+const sinceGate = (profile: FlightProfile, ms: number) =>
+	momentAt(profile, ms / profile.durationMs);
+/** The moment `ms` before the arrival at the gate. */
+const untilGate = (profile: FlightProfile, ms: number) =>
+	momentAt(profile, 1 - ms / profile.durationMs);
+
+/** The time of the first moment at `altitudeM` or higher, from the gate. */
+function reaches(profile: FlightProfile, altitudeM: number): number {
+	for (let ms = 0; ms <= profile.durationMs; ms += SECOND) {
+		if (sinceGate(profile, ms).altitudeM >= altitudeM) {
+			return ms;
+		}
+	}
+	return Number.POSITIVE_INFINITY;
+}
 
 describe("flightProfile", () => {
 	it("climbs to the cruise altitude on a long flight", () => {
 		expect(long.cruiseAltitudeM).toBe(CRUISE_ALTITUDE_M);
-		expect(long.climbMs).toBeCloseTo(CLIMB_MS, -3);
-		expect(long.descentMs).toBeCloseTo(DESCENT_MS, -3);
 	});
 
 	it("gives a cruise speed of an airliner", () => {
-		expect(long.cruiseKmh).toBeGreaterThan(800);
-		expect(long.cruiseKmh).toBeLessThan(900);
-		expect(short.cruiseKmh).toBeGreaterThan(650);
-		expect(short.cruiseKmh).toBeLessThan(800);
+		expect(momentAt(long, 0.5).speedKmh).toBeGreaterThan(800);
+		expect(momentAt(long, 0.5).speedKmh).toBeLessThan(900);
+		// The taxi of one minute gives the rest of the time at the gate to the air.
+		expect(momentAt(short, 0.5).speedKmh).toBeGreaterThanOrEqual(540);
+		expect(momentAt(short, 0.5).speedKmh).toBeLessThan(800);
 	});
 
 	it("keeps a lower altitude on a short flight", () => {
-		const hop = flightProfile(150, 30 * MINUTE);
-
 		expect(hop.cruiseAltitudeM).toBeLessThan(CRUISE_ALTITUDE_M);
 		expect(hop.cruiseAltitudeM).toBeGreaterThan(3000);
 	});
 
-	it("keeps a third of the flight for the cruise", () => {
-		for (const profile of [long, short, flightProfile(150, 30 * MINUTE)]) {
-			expect(profile.climbMs + profile.descentMs).toBeLessThanOrEqual(
-				(profile.durationMs * 2) / 3 + 1,
+	it("keeps a third of the time in the air for the cruise", () => {
+		for (const profile of [long, short, hop]) {
+			const top = profile.points.filter(
+				(point) => point.altitudeM === profile.cruiseAltitudeM,
 			);
+			const cruiseMs = (top.at(-1)?.ms ?? 0) - (top[0]?.ms ?? 0);
+			const airMs = profile.durationMs - 2 * TAXI_MS - 65 * SECOND;
+
+			expect(cruiseMs).toBeGreaterThanOrEqual(airMs / 3 - 1);
+		}
+	});
+
+	it("makes the distance of the profile equal to the distance of the route", () => {
+		for (const profile of [long, short, hop]) {
+			expect(profile.points.at(-1)?.km).toBeCloseTo(profile.distanceKm, 6);
 		}
 	});
 });
 
 describe("momentAt", () => {
-	it("starts at the origin, with no speed and no altitude", () => {
+	it("starts at the gate, with no speed and no altitude", () => {
 		expect(momentAt(long, 0)).toEqual({
 			fraction: 0,
 			remainingKm: 9850,
@@ -54,7 +80,7 @@ describe("momentAt", () => {
 		});
 	});
 
-	it("ends at the destination, with no speed and no altitude", () => {
+	it("ends at the gate, with no speed and no altitude", () => {
 		const end = momentAt(long, 1);
 
 		expect(end.fraction).toBeCloseTo(1, 9);
@@ -63,20 +89,92 @@ describe("momentAt", () => {
 		expect(end.altitudeM).toBe(0);
 	});
 
-	it("increases the speed and the altitude linearly during the climb", () => {
-		const quarter = momentAt(long, long.climbMs / 4 / long.durationMs);
-		const half = momentAt(long, long.climbMs / 2 / long.durationMs);
-
-		expect(half.speedKmh).toBeCloseTo(2 * quarter.speedKmh, -1);
-		expect(half.altitudeM).toBeCloseTo(CRUISE_ALTITUDE_M / 2, -1);
+	it("taxis for one minute at each airport", () => {
+		for (const moment of [
+			sinceGate(long, 30 * SECOND),
+			untilGate(long, 30 * SECOND),
+		]) {
+			expect(moment.speedKmh).toBe(30);
+			expect(moment.altitudeM).toBe(0);
+		}
 	});
 
-	it("decreases the speed and the altitude linearly during the descent", () => {
-		const left = (ms: number) => 1 - ms / long.durationMs;
-		const half = momentAt(long, left(long.descentMs / 2));
+	it("lifts off at the speed of an airliner after the take-off run", () => {
+		const run = sinceGate(long, TAXI_MS + 34 * SECOND);
 
-		expect(half.speedKmh).toBeCloseTo(long.cruiseKmh / 2, -1);
-		expect(half.altitudeM).toBeCloseTo(CRUISE_ALTITUDE_M / 2, -1);
+		expect(run.altitudeM).toBe(0);
+		expect(run.speedKmh).toBeGreaterThan(250);
+		expect(sinceGate(long, TAXI_MS + 60 * SECOND).altitudeM).toBeGreaterThan(0);
+	});
+
+	it("gives the time at the gate to the cruise, not to the take-off", () => {
+		const slow = flightProfile(1000, 1.75 * HOUR);
+
+		expect(momentAt(slow, 0.5).speedKmh).toBeLessThan(700);
+		expect(sinceGate(slow, TAXI_MS + 35 * SECOND).speedKmh).toBe(280);
+		expect(untilGate(slow, TAXI_MS + 30 * SECOND).speedKmh).toBe(260);
+	});
+
+	it("slows all the speeds in the air when the cruise is too slow", () => {
+		const slow = flightProfile(1000, 4 * HOUR);
+		const liftOff = sinceGate(slow, TAXI_MS + 35 * SECOND).speedKmh;
+
+		expect(liftOff).toBeLessThan(280);
+		expect(momentAt(slow, 0.5).speedKmh / liftOff).toBeCloseTo(540 / 280, 1);
+		expect(sinceGate(slow, 30 * SECOND).speedKmh).toBe(30);
+		expect(momentAt(slow, 1).fraction).toBeCloseTo(1, 9);
+	});
+
+	it("is near 280 km/h one minute after the gate, not near 30 km/h", () => {
+		expect(sinceGate(long, TAXI_MS + 30 * SECOND).speedKmh).toBeGreaterThan(
+			200,
+		);
+	});
+
+	it("climbs quickly at a low altitude and slowly near the cruise", () => {
+		const low = reaches(long, 3000) - reaches(long, 1000);
+		const high = reaches(long, 11_000) - reaches(long, 9000);
+
+		expect(low).toBeLessThan(high);
+	});
+
+	it("is at FL100 after approximately 5 minutes, near 250 kt", () => {
+		const fl100 = reaches(long, 3050);
+
+		expect(fl100).toBeGreaterThan(TAXI_MS + 4 * MINUTE);
+		expect(fl100).toBeLessThan(TAXI_MS + 7 * MINUTE);
+		expect(sinceGate(long, fl100).speedKmh).toBeGreaterThan(480);
+		expect(sinceGate(long, fl100).speedKmh).toBeLessThan(600);
+	});
+
+	it("is at the cruise altitude after approximately 20 minutes", () => {
+		const top = reaches(long, CRUISE_ALTITUDE_M);
+
+		expect(top).toBeGreaterThan(18 * MINUTE);
+		expect(top).toBeLessThan(26 * MINUTE);
+	});
+
+	it("touches down at the speed of an airliner, then brakes to the taxi", () => {
+		const touchdown = TAXI_MS + 30 * SECOND;
+		const air = untilGate(long, touchdown + 20 * SECOND);
+		const ground = untilGate(long, touchdown - SECOND);
+
+		expect(air.altitudeM).toBeGreaterThan(0);
+		expect(air.altitudeM).toBeLessThan(100);
+		expect(ground.altitudeM).toBe(0);
+		expect(ground.speedKmh).toBeGreaterThan(200);
+		expect(untilGate(long, TAXI_MS).speedKmh).toBe(30);
+	});
+
+	it("changes the speed smoothly near the airports", () => {
+		for (const profile of [long, short, hop]) {
+			let previous = 0;
+			for (let ms = 0; ms <= 5 * MINUTE; ms += SECOND) {
+				const { speedKmh } = sinceGate(profile, ms);
+				expect(Math.abs(speedKmh - previous)).toBeLessThanOrEqual(10);
+				previous = speedKmh;
+			}
+		}
 	});
 
 	it("keeps the cruise speed and altitude in the middle of the flight", () => {
@@ -96,11 +194,13 @@ describe("momentAt", () => {
 	});
 
 	it("never goes back along the route", () => {
-		let previous = 0;
-		for (let i = 1; i <= 1000; i += 1) {
-			const { fraction } = momentAt(short, i / 1000);
-			expect(fraction).toBeGreaterThanOrEqual(previous);
-			previous = fraction;
+		for (const profile of [long, short, hop, flightProfile(480, 2 * MINUTE)]) {
+			let previous = 0;
+			for (let i = 1; i <= 1000; i += 1) {
+				const { fraction } = momentAt(profile, i / 1000);
+				expect(fraction).toBeGreaterThanOrEqual(previous);
+				previous = fraction;
+			}
 		}
 	});
 
@@ -133,5 +233,20 @@ describe("momentAt", () => {
 			speedKmh: 0,
 			altitudeM: 0,
 		});
+	});
+
+	it("shortens the taxi of a flight of a few minutes", () => {
+		const tiny = flightProfile(20, 4 * MINUTE);
+
+		expect(momentAt(tiny, 0.5).altitudeM).toBeGreaterThan(0);
+		expect(momentAt(tiny, 1).fraction).toBeCloseTo(1, 9);
+		expect(tiny.points.every((point) => Number.isFinite(point.km))).toBe(true);
+	});
+
+	it("arrives at the destination when the taxi is longer than the route", () => {
+		const near = flightProfile(0.2, HOUR);
+
+		expect(momentAt(near, 1).fraction).toBe(1);
+		expect(momentAt(near, 1).remainingKm).toBe(0);
 	});
 });
