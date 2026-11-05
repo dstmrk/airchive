@@ -11,6 +11,7 @@ import {
 	journeyStretches,
 	journeyTimeline,
 	landingMarks,
+	SHORT_GATE_MS,
 	SHORT_STOP_MS,
 } from "./journey-replay.ts";
 
@@ -103,14 +104,66 @@ describe("journeyTimeline", () => {
 });
 
 describe("journeyStretches", () => {
-	it("waits a short time at a stop in a short replay, and the flights share the rest", () => {
-		const wait = SHORT_STOP_MS;
+	// Rome to London, 1,450 km in 2 h 30 min: the aircraft waits at the gates.
+	const london = journeyTimeline([leg(FCO, LHR, T0, 2.5)]);
+	const [gates] = london.profiles;
+	const outMs = gates?.gateOutMs ?? 0;
+	const inMs = gates?.gateInMs ?? 0;
+	const airMs = 2.5 * HOUR - outMs - inMs;
+	const sum = (stretches: { ms: number }[]) =>
+		stretches.reduce((total, s) => total + s.ms, 0);
 
-		expect(journeyStretches(tokyo, "30s", "real")).toEqual([
-			{ width: 6 / 18, ms: ((30_000 - wait) * 6) / 15 },
-			{ width: 3 / 18, ms: wait },
-			{ width: 9 / 18, ms: ((30_000 - wait) * 9) / 15 },
+	it("splits a flight into the wait at the gate, the air and the wait at the gate", () => {
+		expect(outMs).toBeGreaterThan(inMs);
+		expect(inMs).toBeGreaterThan(0);
+		expect(journeyStretches(london, "30s", "real")).toEqual([
+			{ kind: "gate", width: outMs / (2.5 * HOUR), ms: SHORT_GATE_MS },
+			{
+				kind: "air",
+				width: airMs / (2.5 * HOUR),
+				ms: 30_000 - 2 * SHORT_GATE_MS,
+			},
+			{ kind: "gate", width: inMs / (2.5 * HOUR), ms: SHORT_GATE_MS },
 		]);
+	});
+
+	it("skips the waits at the gates in a long replay", () => {
+		for (const speed of ["4x", "1x"] as const) {
+			const factor = speed === "4x" ? 4 : 1;
+			expect(journeyStretches(london, speed, "real").map((s) => s.ms)).toEqual([
+				0,
+				airMs / factor,
+				0,
+			]);
+		}
+	});
+
+	it("gives no wait at the gates to a flight that needs all its time", () => {
+		const timeline = journeyTimeline([leg(FCO, NRT, T0, 12)]);
+
+		expect(journeyStretches(timeline, "1min", "real")).toEqual([
+			{ kind: "air", width: 1, ms: 60_000 },
+		]);
+		expect(hasKnownStop(timeline)).toBe(false);
+		expect(hasKnownStop(tokyo)).toBe(true);
+	});
+
+	it("waits a short time at a stop and at each gate in a short replay", () => {
+		const stretches = journeyStretches(tokyo, "30s", "real");
+		const air = stretches.filter((s) => s.kind === "air");
+
+		expect(stretches.filter((s) => s.kind === "stop")).toEqual([
+			{ kind: "stop", width: 3 / 18, ms: SHORT_STOP_MS },
+		]);
+		for (const gate of stretches.filter((s) => s.kind === "gate")) {
+			expect(gate.ms).toBe(SHORT_GATE_MS);
+		}
+		expect(sum(stretches)).toBeCloseTo(30_000, 6);
+		// The flights share the rest by their time in the air: one speed.
+		expect(air[0] && air[0].ms / air[0].width).toBeCloseTo(
+			air[1] ? air[1].ms / air[1].width : 0,
+			6,
+		);
 	});
 
 	it("gives a short replay the same parts with the two modes of the stops", () => {
@@ -121,30 +174,27 @@ describe("journeyStretches", () => {
 
 	it("keeps the waits of a short replay to a fifth of its length", () => {
 		const legs = Array.from({ length: 12 }, (_, i) =>
-			leg(i % 2 ? AUH : FCO, i % 2 ? FCO : AUH, T0 + i * 8 * HOUR, 6),
+			leg(i % 2 ? LHR : FCO, i % 2 ? FCO : LHR, T0 + i * 4 * HOUR, 2.5),
 		);
 		const stretches = journeyStretches(journeyTimeline(legs), "15s", "real");
-		const waits = stretches.filter((_, i) => i % 2 === 1);
+		const waits = stretches.filter((s) => s.kind !== "air");
 
-		expect(waits).toHaveLength(11);
-		expect(waits.reduce((sum, s) => sum + s.ms, 0)).toBeCloseTo(3000, 6);
-		expect(stretches.reduce((sum, s) => sum + s.ms, 0)).toBeCloseTo(15_000, 6);
+		expect(waits).toHaveLength(11 + 24);
+		expect(sum(waits)).toBeCloseTo(3000, 6);
+		expect(sum(stretches)).toBeCloseTo(15_000, 6);
 	});
 
 	it("waits the real time of a stop, divided by the factor, in a long replay", () => {
-		expect(journeyStretches(tokyo, "4x", "real").map((s) => s.ms)).toEqual([
-			1.5 * HOUR,
-			0.75 * HOUR,
-			2.25 * HOUR,
-		]);
+		const stretches = journeyStretches(tokyo, "4x", "real");
+
+		expect(stretches.find((s) => s.kind === "stop")?.ms).toBe(0.75 * HOUR);
+		expect(sum(stretches.filter((s) => s.kind === "gate"))).toBe(0);
 	});
 
 	it("skips the stop in a long replay when the person chooses it", () => {
-		expect(journeyStretches(tokyo, "1x", "skip").map((s) => s.ms)).toEqual([
-			6 * HOUR,
-			0,
-			9 * HOUR,
-		]);
+		const stretches = journeyStretches(tokyo, "1x", "skip");
+
+		expect(stretches.find((s) => s.kind === "stop")?.ms).toBe(0);
 	});
 
 	it("does not wait at an unknown stop", () => {
@@ -153,22 +203,21 @@ describe("journeyStretches", () => {
 			leg(AUH, NRT, null, 9),
 		]);
 
-		expect(journeyStretches(timeline, "30s", "real")).toEqual([
-			{ width: 6 / 15, ms: 12_000 },
-			{ width: 0, ms: 0 },
-			{ width: 9 / 15, ms: 18_000 },
-		]);
+		expect(
+			journeyStretches(timeline, "30s", "real").filter(
+				(s) => s.kind === "stop",
+			),
+		).toEqual([{ kind: "stop", width: 0, ms: 0 }]);
 		expect(hasKnownStop(timeline)).toBe(false);
 	});
 
-	it("gives the replay of one flight for one leg", () => {
-		const timeline = journeyTimeline([leg(FCO, NRT, T0, 12)]);
-
-		expect(journeyStretches(timeline, "1min", "real")).toEqual([
-			{ width: 1, ms: 60_000 },
-		]);
-		expect(hasKnownStop(timeline)).toBe(false);
-		expect(hasKnownStop(tokyo)).toBe(true);
+	it("makes the widths of the parts equal to 1", () => {
+		for (const timeline of [tokyo, london]) {
+			const widths = journeyStretches(timeline, "30s", "real").map(
+				(s) => s.width,
+			);
+			expect(widths.reduce((total, w) => total + w, 0)).toBeCloseTo(1, 9);
+		}
 	});
 });
 

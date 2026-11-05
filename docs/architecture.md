@@ -624,10 +624,14 @@ of one flight is a journey of one leg: the page has one path.
   move the aircraft.
 - A stop is the time from an arrival to the next departure. With no departure time on
   one of the two legs, the stop is unknown and has no length.
-- Each part of the timeline has its speed (`Stretch` and `advance` in `replay.ts`). The
-  flights share the length of the replay by their duration.
-- A short replay (`15 s` to `5 min`) waits 1.5 s at each known stop, thus the person sees
-  the landing. The waits use a maximum of 1/5 of the replay.
+- Each part of the timeline has its speed (`Stretch` and `advance` in `replay.ts`). A
+  flight has three parts: the wait at the gate, the time in the air and the wait at the
+  gate. The flights share the length of the replay by their time in the air.
+- A short replay (`15 s` to `5 min`) waits 1.5 s at each known stop and 1 s at each gate
+  with a wait. Thus the person sees the landing. The waits use a maximum of 1/5 of the
+  replay.
+- A long replay always skips the waits at the gates: a still aircraft for 20 minutes
+  tells the person nothing. The clocks go to the time of the take-off run.
 - A long replay (`4×` and real time) has the choice "Layovers": "Include" or "Skip". The
   default is "Include": the aircraft waits for the time of the stop, divided by the
   factor. With "Skip", the aircraft departs again at the landing, and the clocks go to
@@ -648,11 +652,13 @@ gives no real data:
 
 - A table of points of a typical airliner gives the profile. Between two points, the
   speed and the altitude are linear. The distance is the exact area under the speed.
-- The aircraft taxis at 30 km/h for a minimum of 1 minute at each airport. The duration
-  is from gate to gate, thus the taxi takes the rest of the real time first. The taxi out
-  gets 2/3 of that time. The ground uses a maximum of 1/4 of the flight.
-- The take-off run takes 35 s to 280 km/h. The landing run takes 30 s from 260 km/h to
-  the taxi speed.
+- The aircraft does not taxi. A taxi of 20 minutes at 30 km/h moved it 10 km, out of
+  the airport on the map. The aircraft waits at the gate with no speed instead.
+- The duration is from gate to gate, thus the wait takes the rest of the real time
+  first. The wait before the take-off gets 2/3 of that time, because a real taxi out is
+  longer. The waits and the runs use a maximum of 1/4 of the flight.
+- The take-off run takes 35 s from a stop to 280 km/h. The landing run takes 30 s from
+  260 km/h to a stop.
 - The climb is quick at a low altitude and slow near the cruise. The aircraft is at FL100
   after approximately 4 minutes, and at 11,000 m after approximately 22 minutes. The
   descent takes approximately 22 minutes.
@@ -660,9 +666,9 @@ gives no real data:
   speed goes to the cruise speed.
 - The climb and the descent use a maximum of 2/3 of the time in the air. Thus a short
   flight has a lower cruise altitude.
-- The taxi makes the cruise approximately 830 km/h (Mach 0.78). At the limit of 1/4, the
+- The wait makes the cruise approximately 830 km/h (Mach 0.78). At the limit of 1/4, the
   cruise speed makes the distance of the profile equal to the distance of the great
-  circle. Thus a flight of 1,100 km in 2 h 10 min cruises at approximately 730 km/h. The
+  circle. Thus a flight of 1,100 km in 2 h 10 min cruises at approximately 740 km/h. The
   take-off and the landing keep their speeds.
 - When the cruise is slower than 540 km/h, all the speeds in the air become slower by
   the same factor. A short hop then takes off at the speed of a turboprop.

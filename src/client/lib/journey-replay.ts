@@ -139,6 +139,8 @@ export type StopMode = "real" | "skip";
 
 /** In a short replay, the aircraft waits this time at each known stop. */
 export const SHORT_STOP_MS = 1500;
+/** In a short replay, the aircraft waits this time at each gate with a wait. */
+export const SHORT_GATE_MS = 1000;
 /** The waits of a short replay use a maximum of this part of its length. */
 const MAX_SHORT_STOPS = 0.2;
 
@@ -147,48 +149,73 @@ export function hasKnownStop(timeline: Timeline): boolean {
 	return timeline.parts.some((part) => part.kind === "stop" && part.ms > 0);
 }
 
+/** A part of the replay: the wait at a gate, a flight in the air, or a stop. */
+export type JourneyStretch = Stretch & { kind: "gate" | "air" | "stop" };
+
 /**
  * The parts of the replay at a speed. As for one flight, a short replay has
  * a fixed length, and a long replay is a multiple of the real time.
  *
- * - A short replay waits `SHORT_STOP_MS` at each known stop, thus the person
- *   sees the landing. The flights share the rest by their duration.
- * - A long replay waits the real time of a stop, divided by the factor, or it
- *   skips the stop. `stops` gives the choice.
+ * - Each flight has a wait at the gate before the take-off and after the
+ *   landing (`gateOutMs` and `gateInMs` of its profile). A wait with no
+ *   length gives no part.
+ * - A short replay waits `SHORT_STOP_MS` at each known stop and
+ *   `SHORT_GATE_MS` at each gate, thus the person sees the label of the
+ *   phase. The flights share the rest by their time in the air.
+ * - A long replay skips the waits at the gates. It waits the real time of a
+ *   stop, divided by the factor, or it skips the stop. `stops` gives the
+ *   choice.
  */
 export function journeyStretches(
 	timeline: Timeline,
 	speed: SpeedId,
 	stops: StopMode,
-): Stretch[] {
-	const known = timeline.parts.filter(
-		(part) => part.kind === "stop" && part.ms > 0,
-	).length;
-	const flightsMs = timeline.parts
-		.filter((part) => part.kind === "flight")
-		.reduce((sum, part) => sum + part.ms, 0);
+): JourneyStretch[] {
+	const pieces = timeline.parts.flatMap(
+		(part): { kind: JourneyStretch["kind"]; ms: number }[] => {
+			if (part.kind === "stop") {
+				return [{ kind: "stop", ms: part.ms }];
+			}
+			const profile = timeline.profiles[part.leg];
+			const out = profile?.gateOutMs ?? 0;
+			const back = profile?.gateInMs ?? 0;
+			return [
+				{ kind: "gate" as const, ms: out },
+				{ kind: "air" as const, ms: part.ms - out - back },
+				{ kind: "gate" as const, ms: back },
+			].filter((piece) => piece.kind !== "gate" || piece.ms > 0);
+		},
+	);
+	const airMs = pieces
+		.filter((piece) => piece.kind === "air")
+		.reduce((sum, piece) => sum + piece.ms, 0);
 	const long = isLongSpeed(speed);
-	const length = replayMs(speed, flightsMs);
-	const shortStop =
-		known > 0 ? Math.min(SHORT_STOP_MS, (length * MAX_SHORT_STOPS) / known) : 0;
-	const flying = long ? length : length - shortStop * known;
-	const stopLength = (ms: number) => {
-		if (ms <= 0) {
-			return 0;
+	const length = replayMs(speed, airMs);
+	const nominal = (piece: { kind: string; ms: number }) =>
+		piece.ms <= 0 || piece.kind === "air"
+			? 0
+			: piece.kind === "stop"
+				? SHORT_STOP_MS
+				: SHORT_GATE_MS;
+	const waitsMs = pieces.reduce((sum, piece) => sum + nominal(piece), 0);
+	const shrink =
+		waitsMs > 0 ? Math.min(1, (length * MAX_SHORT_STOPS) / waitsMs) : 1;
+	const flying = long ? length : length - waitsMs * shrink;
+	const replayOf = (piece: { kind: string; ms: number }) => {
+		if (piece.kind === "air") {
+			return airMs > 0 ? (flying * piece.ms) / airMs : 0;
 		}
 		if (!long) {
-			return shortStop;
+			return nominal(piece) * shrink;
 		}
-		return stops === "real" ? replayMs(speed, ms) : 0;
+		return piece.kind === "stop" && stops === "real" && piece.ms > 0
+			? replayMs(speed, piece.ms)
+			: 0;
 	};
-	return timeline.parts.map((part) => ({
-		width: timeline.totalMs > 0 ? part.ms / timeline.totalMs : 0,
-		ms:
-			part.kind === "stop"
-				? stopLength(part.ms)
-				: flightsMs > 0
-					? (flying * part.ms) / flightsMs
-					: 0,
+	return pieces.map((piece) => ({
+		kind: piece.kind,
+		width: timeline.totalMs > 0 ? piece.ms / timeline.totalMs : 0,
+		ms: replayOf(piece),
 	}));
 }
 
