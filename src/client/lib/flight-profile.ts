@@ -93,6 +93,25 @@ function topAltitude(rampsMs: number): number {
 	return CRUISE_ALTITUDE_M;
 }
 
+/**
+ * The take-off ends and the landing starts at 900 m (3,000 ft), the level of
+ * the first point of the table.
+ */
+const APPROACH_M = 900;
+
+/** A phase of the flight and its start, from the departure from the gate. */
+export type FlightPhase = {
+	id:
+		| "gateOut"
+		| "takeOff"
+		| "climb"
+		| "cruise"
+		| "descent"
+		| "landing"
+		| "gateIn";
+	startMs: number;
+};
+
 /** A point of the profile. `km` is the distance flown at `ms`. */
 export type ProfilePoint = {
 	ms: number;
@@ -107,6 +126,8 @@ export type FlightProfile = {
 	/** The wait at the gate before the take-off run, and after the landing run. */
 	gateOutMs: number;
 	gateInMs: number;
+	/** The phases in order. A phase with no length starts at the start of the next one. */
+	phases: FlightPhase[];
 	cruiseAltitudeM: number;
 	/** The speed at FL310 and higher. */
 	cruiseKmh: number;
@@ -168,7 +189,26 @@ function plan(durationMs: number, waitMs: number) {
 		}
 	});
 	const atCruiseKm = fixedKm + CRUISE_KMH * partKm;
-	return { drafts, top, gateOutMs, gateInMs, fixedKm, partKm, atCruiseKm };
+	const approach = levelAt(Math.min(APPROACH_M, top.altitudeM));
+	const phases: FlightPhase[] = [
+		{ id: "gateOut", startMs: 0 },
+		{ id: "takeOff", startMs: gateOutMs },
+		{ id: "climb", startMs: liftOff + approach.climbS * 1000 },
+		{ id: "cruise", startMs: liftOff + top.climbS * 1000 },
+		{ id: "descent", startMs: touchdown - top.descentS * 1000 },
+		{ id: "landing", startMs: touchdown - approach.descentS * 1000 },
+		{ id: "gateIn", startMs: durationMs - gateInMs },
+	];
+	return {
+		drafts,
+		phases,
+		top,
+		gateOutMs,
+		gateInMs,
+		fixedKm,
+		partKm,
+		atCruiseKm,
+	};
 }
 
 /**
@@ -214,7 +254,7 @@ export function flightProfile(
 	durationMs: number,
 ): FlightProfile {
 	const duration = Math.max(0, durationMs);
-	const { drafts, top, gateOutMs, gateInMs, fixedKm, partKm } = plan(
+	const { drafts, phases, top, gateOutMs, gateInMs, fixedKm, partKm } = plan(
 		duration,
 		waitMs(distanceKm, duration),
 	);
@@ -242,6 +282,7 @@ export function flightProfile(
 		durationMs,
 		gateOutMs,
 		gateInMs,
+		phases,
 		cruiseAltitudeM: top.altitudeM,
 		cruiseKmh: scale * cruise,
 		points,

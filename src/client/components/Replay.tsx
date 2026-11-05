@@ -2,8 +2,9 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useText } from "../i18n/I18nProvider.tsx";
 import type { Messages } from "../i18n/messages.ts";
+import { journeyPhase, NEXT_TEXT, PHASE_TEXT } from "../lib/flight-phase.ts";
 import { clockAt, durationText } from "../lib/flight-time.ts";
-import { formatUnit } from "../lib/format.ts";
+import { fillText, formatCountdown, formatUnit } from "../lib/format.ts";
 import {
 	finalArrival,
 	hasKnownStop,
@@ -211,6 +212,29 @@ function InflightPanel({
 	);
 }
 
+/** The phase of the flight, and the time to the next phase. */
+function PhaseLine({
+	timeline,
+	view,
+}: Readonly<{ timeline: Timeline; view: JourneyMoment }>) {
+	const text = useText();
+	const locale = document.documentElement.lang;
+	const { phase, next, inMs } = journeyPhase(timeline, view);
+	return (
+		<p className="text-sm">
+			<span className="font-medium">{text[PHASE_TEXT[phase]]}</span>
+			{next && (
+				<span className="text-muted-foreground">
+					{" · "}
+					{fillText(text[NEXT_TEXT[next]], {
+						time: formatCountdown(inMs, locale),
+					})}
+				</span>
+			)}
+		</p>
+	);
+}
+
 /** The local times of the airports of the leg, or of the airport of the stop. */
 function Clocks({
 	timeline,
@@ -321,6 +345,7 @@ export function ReplayControls({
 					))}
 				</div>
 			</div>
+			<PhaseLine timeline={timeline} view={view} />
 			<InflightPanel
 				view={view}
 				remainingMs={total - view.elapsedMs}
