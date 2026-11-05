@@ -6,7 +6,7 @@ airchive turns your boarding passes into a paper keepsake of each flight. You ad
 `.pkpass` file, a screenshot of the barcode or the data of the flight. airchive shows a
 classic paper boarding pass, a map of the route and a replay of the flight.
 
-The project is at the start. The repository holds the scaffold only.
+The repository holds the scaffold only.
 [`docs/architecture.md`](docs/architecture.md) gives the decisions and the plan.
 
 ## Development
