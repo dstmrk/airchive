@@ -291,9 +291,10 @@ export default function FlightMap({
 							}
 						}}
 						// The same test: a pinch, the wheel, a double tap or a key stops the profile zoom.
-						// `zoom` and not `zoomstart`: the `zoomstart` of the wheel has no `originalEvent`.
+						// A single tick of the wheel gives no `originalEvent`: MapLibre starts it after a
+						// timeout. `scrollZoom.isZooming()` is true from the start of a wheel zoom.
 						onZoom={(event) => {
-							if (event.originalEvent) {
+							if (event.originalEvent || event.target.scrollZoom.isZooming()) {
 								dispatchZoom("zoom");
 							}
 						}}
