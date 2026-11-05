@@ -644,9 +644,9 @@ gives no real data:
 
 - A table of points of a typical airliner gives the profile. Between two points, the
   speed and the altitude are linear. The distance is the exact area under the speed.
-- The aircraft taxis for 1 minute at 30 km/h at each airport. A real taxi is longer, but
-  a replay in real time does not wait for it. The ground uses a maximum of 1/4 of a
-  flight of a few minutes.
+- The aircraft taxis at 30 km/h for a minimum of 1 minute at each airport. The duration
+  is from gate to gate, thus the taxi takes the rest of the real time first. The taxi out
+  gets 2/3 of that time. The ground uses a maximum of 1/4 of the flight.
 - The take-off run takes 35 s to 280 km/h. The landing run takes 30 s from 260 km/h to
   the taxi speed.
 - The climb is quick at a low altitude and slow near the cruise. The aircraft is at FL100
@@ -656,9 +656,10 @@ gives no real data:
   speed goes to the cruise speed.
 - The climb and the descent use a maximum of 2/3 of the time in the air. Thus a short
   flight has a lower cruise altitude.
-- The cruise speed makes the distance of the profile equal to the distance of the great
-  circle. The duration is from gate to gate, thus the cruise also gets the rest of the
-  real time at the gate. The take-off and the landing keep their speeds.
+- The taxi makes the cruise approximately 830 km/h (Mach 0.78). At the limit of 1/4, the
+  cruise speed makes the distance of the profile equal to the distance of the great
+  circle. Thus a flight of 1,100 km in 2 h 10 min cruises at approximately 730 km/h. The
+  take-off and the landing keep their speeds.
 - When the cruise is slower than 540 km/h, all the speeds in the air become slower by
   the same factor. A short hop then takes off at the speed of a turboprop.
 - One profile applies to all the speeds of the replay. Thus a change of the speed does

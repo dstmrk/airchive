@@ -9,7 +9,7 @@
 /** Approximately FL360, a cruise level of an airliner. */
 export const CRUISE_ALTITUDE_M = 11_000;
 
-/** The time of the taxi at each airport. A real taxi is longer, but a replay in real time does not wait. */
+/** The minimum time of the taxi at each airport. */
 export const TAXI_MS = 60_000;
 const TAXI_KMH = 30;
 /** The aircraft starts and stops in this time, at the gate. */
@@ -19,7 +19,7 @@ const TAKE_OFF_MS = 35_000;
 /** The landing run, from the touchdown to the taxi speed. */
 const LANDING_MS = 30_000;
 const GROUND_MS = 2 * TAXI_MS + TAKE_OFF_MS + LANDING_MS;
-/** The ground uses a maximum of 1/4 of a flight of a few minutes. */
+/** The ground uses a maximum of 1/4 of the flight. */
 const MAX_GROUND = 1 / 4;
 /** The climb and the descent use a maximum of 2/3 of the time in the air. */
 const MAX_RAMPS = 2 / 3;
@@ -125,29 +125,21 @@ type Draft = {
 	part: number;
 };
 
+/** The cruise speed of a typical airliner: Mach 0.78 at FL360. */
+const CRUISE_KMH = 830;
 /** Below this cruise speed, all the speeds in the air become slower by one factor. */
 const MIN_CRUISE_KMH = FL100_KMH;
+/** The taxi out gets 2/3 of the extra taxi: it is longer than the taxi in. */
+const TAXI_OUT = 2 / 3;
 
-/**
- * The profile of a flight of `distanceKm` in `durationMs`, from gate to gate.
- * A short flight has no time for the full climb, thus its cruise altitude is
- * lower. The distance of the profile is equal to `distanceKm`:
- *
- * - The cruise speed takes the difference first. Thus the take-off and the
- *   landing keep the speeds of an airliner.
- * - When the cruise is slower than `MIN_CRUISE_KMH`, all the speeds in the
- *   air become slower by the same factor. The taxi keeps its speed.
- */
-export function flightProfile(
-	distanceKm: number,
-	durationMs: number,
-): FlightProfile {
-	const duration = Math.max(0, durationMs);
-	const ground = Math.min(1, (duration * MAX_GROUND) / GROUND_MS);
-	const taxi = TAXI_MS * ground;
+/** The points of a flight with `extraMs` of taxi more than the minimum. */
+function plan(durationMs: number, extraMs: number) {
+	const ground = Math.min(1, (durationMs * MAX_GROUND) / GROUND_MS);
+	const taxiOut = TAXI_MS * ground + extraMs * TAXI_OUT;
+	const taxiIn = TAXI_MS * ground + extraMs * (1 - TAXI_OUT);
 	const gate = GATE_MS * ground;
-	const liftOff = taxi + TAKE_OFF_MS * ground;
-	const touchdown = duration - taxi - LANDING_MS * ground;
+	const liftOff = taxiOut + TAKE_OFF_MS * ground;
+	const touchdown = durationMs - taxiIn - LANDING_MS * ground;
 	const top = levelAt(topAltitude((touchdown - liftOff) * MAX_RAMPS));
 	const below = LEVELS.filter((level) => level.altitudeM < top.altitudeM);
 	const still = (ms: number): Draft => ({
@@ -168,7 +160,7 @@ export function flightProfile(
 	const drafts: Draft[] = [
 		still(0),
 		taxiing(gate),
-		taxiing(taxi),
+		taxiing(taxiOut),
 		...[...below, top].map((level) =>
 			flying(
 				liftOff + level.climbS * 1000,
@@ -185,9 +177,9 @@ export function flightProfile(
 				level.descentPart,
 			),
 		),
-		taxiing(duration - taxi),
-		taxiing(duration - gate),
-		still(duration),
+		taxiing(durationMs - taxiIn),
+		taxiing(durationMs - gate),
+		still(durationMs),
 	];
 
 	// The distance is `taxiKm + scale × (fixedKm + cruise × partKm)`.
@@ -203,6 +195,57 @@ export function flightProfile(
 			partKm += (hours * (previous.part + draft.part)) / 2;
 		}
 	});
+	const atCruiseKm = taxiKm + fixedKm + CRUISE_KMH * partKm;
+	return { drafts, top, taxiKm, fixedKm, partKm, atCruiseKm };
+}
+
+/**
+ * The extra taxi that gives a cruise of `CRUISE_KMH`. The distance at that
+ * speed becomes shorter with more taxi, thus a bisection finds it.
+ */
+function extraTaxiMs(distanceKm: number, durationMs: number): number {
+	const ground = Math.min(1, (durationMs * MAX_GROUND) / GROUND_MS);
+	const maxMs = Math.max(0, durationMs * MAX_GROUND - GROUND_MS * ground);
+	if (plan(durationMs, 0).atCruiseKm <= distanceKm) {
+		return 0;
+	}
+	if (plan(durationMs, maxMs).atCruiseKm >= distanceKm) {
+		return maxMs;
+	}
+	let low = 0;
+	let high = maxMs;
+	for (let i = 0; i < 40; i += 1) {
+		const middle = (low + high) / 2;
+		if (plan(durationMs, middle).atCruiseKm > distanceKm) {
+			low = middle;
+		} else {
+			high = middle;
+		}
+	}
+	return high;
+}
+
+/**
+ * The profile of a flight of `distanceKm` in `durationMs`, from gate to gate.
+ * A short flight has no time for the full climb, thus its cruise altitude is
+ * lower. The distance of the profile is equal to `distanceKm`:
+ *
+ * - The taxi takes the rest of the time first, to a maximum of 1/4 of the
+ *   flight. Thus the cruise is near `CRUISE_KMH`.
+ * - Then the cruise speed takes the difference. Thus the take-off and the
+ *   landing keep the speeds of an airliner.
+ * - When the cruise is slower than `MIN_CRUISE_KMH`, all the speeds in the
+ *   air become slower by the same factor. The taxi keeps its speed.
+ */
+export function flightProfile(
+	distanceKm: number,
+	durationMs: number,
+): FlightProfile {
+	const duration = Math.max(0, durationMs);
+	const { drafts, top, taxiKm, fixedKm, partKm } = plan(
+		duration,
+		extraTaxiMs(distanceKm, duration),
+	);
 	const airKm = Math.max(0, distanceKm - taxiKm);
 	const fast = partKm > 0 ? (airKm - fixedKm) / partKm : 0;
 	const cruise = Math.max(MIN_CRUISE_KMH, fast);
