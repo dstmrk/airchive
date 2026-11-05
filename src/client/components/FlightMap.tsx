@@ -20,9 +20,21 @@ import {
 	type Timeline,
 } from "../lib/journey-replay.ts";
 import { type MapPalette, paperStyle } from "../lib/paper-map-style.ts";
+import {
+	autoZoom,
+	cruiseZoom,
+	INITIAL_AUTO_ZOOM,
+	profileZoom,
+} from "../lib/profile-zoom.ts";
+import { reducedMotion } from "../lib/tear.ts";
 import { CIVIL_DUSK, darkArea, SUNSET } from "../lib/terminator.ts";
 
 setWorkerUrl(workerUrl);
+
+/** The space around the route, in px, when the map fits it. */
+const PADDING = 56;
+/** The ease of the zoom when the replay starts and when the profile zoom is on again. */
+const EASE_MS = 400;
 
 /** OpenFreeMap: no key, commercial use allowed. One URL, thus a change of provider is one line. */
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
@@ -91,6 +103,23 @@ function Aircraft() {
 	);
 }
 
+/** A lens with an arrow up and down: the zoom follows the altitude. */
+function AutoZoomIcon() {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			aria-hidden="true"
+			className="size-5 fill-none stroke-current"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<circle cx="10" cy="10" r="7" />
+			<path d="M15 15l6 6M10 6.5v7M8 8.5l2-2 2 2M8 11.5l2 2 2-2" />
+		</svg>
+	);
+}
+
 /**
  * The route of a journey on a map: the great circle of each leg. A dotted
  * line on the ground joins two airports of one city. Paragraph 5.5 of
@@ -101,6 +130,9 @@ function Aircraft() {
  * shows the part that it flew. The map keeps the aircraft at the centre, also
  * during a zoom. A drag of the map stops it, and a tap of the aircraft starts
  * and stops it.
+ *
+ * During the replay, the zoom follows the simulated altitude of the leg. A zoom
+ * of the person stops it, and a button on the map starts and stops it.
  *
  * With `instant` (the time of the replay, to the minute), a dark layer covers
  * the night. A lighter band before it is the civil twilight.
@@ -122,6 +154,9 @@ export default function FlightMap({
 	const text = useText();
 	const mapRef = useRef<MapRef>(null);
 	const [following, dispatchFollow] = useReducer(follow, INITIAL_FOLLOW);
+	const [zooming, dispatchZoom] = useReducer(autoZoom, INITIAL_AUTO_ZOOM);
+	// The next zoom of the profile eases: at the start of the replay and after the toggle.
+	const ease = useRef(true);
 	const { data: mapStyle, isError } = usePaperStyle();
 	const { routes } = timeline;
 	const { pins, transfers } = useMemo(() => journeyMap(timeline), [timeline]);
@@ -152,36 +187,20 @@ export default function FlightMap({
 		[instant],
 	);
 
-	const lon = centre?.[0];
-	const lat = centre?.[1];
-	// `jumpTo` and not `easeTo`: an ease at each frame of the replay would stack.
-	// `jumpTo` stops the gestures, thus it waits while the person zooms the map.
-	useEffect(() => {
-		const map = mapRef.current;
-		if (lon !== undefined && lat !== undefined && !map?.isMoving()) {
-			map?.jumpTo({ center: [lon, lat] });
-		}
-	}, [lon, lat]);
-
-	// The replay without an aircraft (it did not start) starts again with the follow on.
+	// The replay without an aircraft (it did not start) starts again with the follow and the profile zoom on.
 	const started = view !== null;
 	useEffect(() => {
 		if (!started) {
 			dispatchFollow("reset");
+			dispatchZoom("reset");
+			ease.current = true;
 		}
 	}, [started]);
-
-	// A zoom around the centre keeps the aircraft where it is.
-	useEffect(() => {
-		const map = mapRef.current?.getMap();
-		const options = tracking ? { around: "center" as const } : true;
-		map?.scrollZoom.enable(options);
-		map?.touchZoomRotate.enable(options);
-	}, [tracking]);
 
 	// `react-map-gl` reads `cooperativeGestures` only at the start of the map.
 	// The size changes with the cabin, thus the route goes in the map again.
 	// With the follow, the next frame of the replay puts the aircraft at the centre.
+	// This effect comes before the effect of the camera: the fit does not stop the ease of the zoom.
 	useEffect(() => {
 		const map = mapRef.current?.getMap();
 		if (!map) {
@@ -193,8 +212,47 @@ export default function FlightMap({
 			map.cooperativeGestures.enable();
 		}
 		map.resize();
-		map.fitBounds(bounds, { padding: 56, animate: false });
+		map.fitBounds(bounds, { padding: PADDING, animate: false });
 	}, [cabin, bounds]);
+
+	const lon = centre?.[0];
+	const lat = centre?.[1];
+	const route = aircraft !== null && zooming ? routes[view?.leg ?? 0] : null;
+	const altitudeM = view?.moment.altitudeM ?? 0;
+	// `jumpTo` and not `easeTo`: an ease at each frame of the replay would stack.
+	// `jumpTo` stops the gestures, thus it waits while the person moves the map.
+	useEffect(() => {
+		const map = mapRef.current;
+		if (!map || map.isMoving()) {
+			return;
+		}
+		const camera: { center?: [number, number]; zoom?: number } = {};
+		if (lon !== undefined && lat !== undefined) {
+			camera.center = [lon, lat];
+		}
+		if (route) {
+			const fit = map.cameraForBounds(routeBounds(route), { padding: PADDING });
+			camera.zoom = profileZoom(altitudeM, cruiseZoom(fit?.zoom));
+		}
+		if (camera.zoom !== undefined && ease.current) {
+			ease.current = false;
+			if (!reducedMotion()) {
+				map.easeTo({ ...camera, duration: EASE_MS });
+				return;
+			}
+		}
+		if (camera.center || camera.zoom !== undefined) {
+			map.jumpTo(camera);
+		}
+	}, [lon, lat, route, altitudeM]);
+
+	// A zoom around the centre keeps the aircraft where it is.
+	useEffect(() => {
+		const map = mapRef.current?.getMap();
+		const options = tracking ? { around: "center" as const } : true;
+		map?.scrollZoom.enable(options);
+		map?.touchZoomRotate.enable(options);
+	}, [tracking]);
 
 	if (isError) {
 		return (
@@ -207,7 +265,7 @@ export default function FlightMap({
 			className={`flex flex-col gap-1.5 ${cabin ? "min-h-0 flex-1" : ""}`}
 		>
 			<div
-				className={`overflow-hidden bg-map-land ${
+				className={`relative overflow-hidden bg-map-land ${
 					cabin
 						? "min-h-0 flex-1"
 						: "h-72 rounded-[14px] shadow-[0_1px_0_#d8cfbd] md:h-96"
@@ -218,7 +276,7 @@ export default function FlightMap({
 						ref={mapRef}
 						initialViewState={{
 							bounds,
-							fitBoundsOptions: { padding: 56 },
+							fitBoundsOptions: { padding: PADDING },
 						}}
 						mapStyle={mapStyle}
 						cooperativeGestures={!cabin}
@@ -230,6 +288,13 @@ export default function FlightMap({
 						onDragStart={(event) => {
 							if (event.originalEvent) {
 								dispatchFollow("drag");
+							}
+						}}
+						// The same test: a pinch, the wheel, a double tap or a key stops the profile zoom.
+						// `zoom` and not `zoomstart`: the `zoomstart` of the wheel has no `originalEvent`.
+						onZoom={(event) => {
+							if (event.originalEvent) {
+								dispatchZoom("zoom");
 							}
 						}}
 						// A double tap zooms around the tap, not around the centre.
@@ -341,6 +406,20 @@ export default function FlightMap({
 							</Marker>
 						)}
 					</MapView>
+				)}
+				{aircraft && (
+					<button
+						type="button"
+						aria-label={text.autoZoom}
+						aria-pressed={zooming}
+						onClick={() => {
+							ease.current = !zooming;
+							dispatchZoom("toggle");
+						}}
+						className="absolute top-2 right-2 grid size-11 place-items-center rounded-full bg-paper shadow-sm aria-pressed:bg-foreground aria-pressed:text-background"
+					>
+						<AutoZoomIcon />
+					</button>
 				)}
 			</div>
 			<p className={`text-[11px] text-muted-foreground ${cabin ? "px-4" : ""}`}>

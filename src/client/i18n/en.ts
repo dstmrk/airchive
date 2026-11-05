@@ -137,6 +137,7 @@ export const en = {
 
 	mapLabel: "Map of the route",
 	followAircraft: "Keep the aircraft at the centre of the map",
+	autoZoom: "Auto zoom",
 	mapUnavailable: "The map is not available now.",
 	mapContributors: "contributors",
 

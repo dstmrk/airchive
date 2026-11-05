@@ -658,6 +658,25 @@ the altitude are simulated.
 When the replay starts, the map keeps the aircraft at the centre. A drag of the map
 stops the follow, and a tap of the aircraft starts it again.
 
+The zoom follows the simulated altitude. `src/client/lib/profile-zoom.ts` holds the
+logic, with tests:
+
+- On the ground the zoom is 11: the person sees the airport. At the cruise the zoom fits
+  the leg in the map, with a minimum of 4 and a maximum of 7.
+- The minimum keeps the aircraft visible on a long leg. The maximum shows a large area
+  on a short leg.
+- The zoom is linear between the two, from 0 m to 11,000 m. Thus the lower cruise of a
+  short flight zooms out less.
+- During a stop the altitude is 0, thus the map shows the airport.
+- The profile zoom is on when the replay starts. A zoom of the person stops it: a pinch,
+  the wheel, a double tap or a key. A button on the map starts and stops it.
+- The test is `originalEvent` on the event `zoom`. The `zoomstart` of the wheel of
+  MapLibre has no `originalEvent`.
+- The profile zoom and the follow are independent. The follow sets the centre, and the
+  profile zoom sets the zoom.
+- The start of the replay and the button ease the zoom in 400 ms. With
+  `prefers-reduced-motion`, the zoom changes with no motion.
+
 During the replay, the map shows the night. `src/client/lib/terminator.ts` holds the
 logic, with tests:
 
