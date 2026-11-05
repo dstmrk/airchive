@@ -672,6 +672,8 @@ logic, with tests:
   the wheel, a double tap or a key. A button on the map starts and stops it.
 - The test is `originalEvent` on the event `zoom`. The `zoomstart` of the wheel of
   MapLibre has no `originalEvent`.
+- MapLibre starts a single tick of the wheel after a timeout of 40 ms, and its events
+  have no `originalEvent`. Thus `scrollZoom.isZooming()` is the second test.
 - The profile zoom and the follow are independent. The follow sets the centre, and the
   profile zoom sets the zoom.
 - The start of the replay and the button ease the zoom in 400 ms. With
