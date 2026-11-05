@@ -36,15 +36,25 @@ function segmentAt(route: readonly LonLat[], t: number) {
  * points of `greatCircle`. The points have equal angles between them, thus a
  * linear step of `t` is a constant speed. The longitudes of the route are
  * continuous, thus the aircraft does not jump at the antimeridian.
+ *
+ * The bearing goes from the bearing of the departure of the segment to the
+ * bearing of its arrival. On a great circle, the arrival of one segment and the
+ * departure of the next one have the same bearing, thus the bearing does not jump.
  */
 export function position(route: readonly LonLat[], t: number): Position {
 	const { index, fraction } = segmentAt(route, t);
 	const a = route[index] ?? [0, 0];
 	const b = route[index + 1] ?? a;
+	const departure = bearing(a, b);
+	// A segment with no length has no direction: the bearing stays.
+	const still = a[0] === b[0] && a[1] === b[1];
+	const arrival = still ? departure : (bearing(b, a) + 180) % 360;
+	// The shortest turn, from -180 to 180 degrees.
+	const turn = ((arrival - departure + 540) % 360) - 180;
 	return {
 		lon: a[0] + (b[0] - a[0]) * fraction,
 		lat: a[1] + (b[1] - a[1]) * fraction,
-		bearing: bearing(a, b),
+		bearing: (departure + turn * fraction + 360) % 360,
 	};
 }
 

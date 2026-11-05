@@ -593,6 +593,9 @@ The full screen is the **cabin**. `src/client/lib/cabin.ts` holds its logic, wit
   to 1. It uses the points of `greatCircle`, which have equal angles between them. Thus
   a linear step of `t` is a constant speed. The aircraft does not use it directly: the
   profile of the flight gives `t` (refer to the next list).
+- The bearing of a segment goes from its bearing at the departure to its bearing at the
+  arrival. On a great circle, the next segment starts with the same bearing. Thus the
+  bearing does not jump.
 - `replay(state, event)` gives the states: `idle`, `boarding`, `playing`, `paused` and
   `landed`. The cabin is open in `playing`, `paused` and `landed`. The event `stop` gives
   `idle` again. The replay never starts alone, thus `prefers-reduced-motion` needs no other
@@ -678,6 +681,28 @@ logic, with tests:
   profile zoom sets the zoom.
 - The start of the replay and the button ease the zoom in 400 ms. With
   `prefers-reduced-motion`, the zoom changes with no motion.
+
+The **3D view** tilts the map, and the map turns with the aircraft. The person sees the
+route in front of the aircraft. `src/client/lib/camera.ts` holds the logic, with tests:
+
+- The pitch is 50 degrees. Above approximately 60 degrees, MapLibre shows the horizon,
+  and the paper style has no sky. A larger pitch also loads more tiles.
+- The bearing of the map follows the bearing of the aircraft while the follow is on. A
+  drag stops the follow: then the bearing and the pitch stay. A tap of the aircraft
+  starts the follow and the turn again.
+- During the replay the map turns at a maximum of 30 degrees each second. Thus a new leg
+  that turns the aircraft by 180 degrees does not turn the map at once.
+- When the replay does not play, the map goes to the bearing of the aircraft at once. A
+  seek is a request of the person: the jump is correct.
+- A padding of one third of the height puts the aircraft at two thirds of the map. The
+  profile zoom ignores that padding (`absolutePadding`), thus the zoom does not change.
+- In the 3D view, the person cannot turn or tilt the map: the camera sets the bearing
+  and the pitch. The touch gestures and the keys of the rotation stop.
+- The 3D view is on when the replay starts. With `prefers-reduced-motion` it is off,
+  because a map that turns can make a person ill.
+- A button on the map, under the button of the profile zoom, starts and stops the 3D
+  view. The change eases in 400 ms, but with no motion for `prefers-reduced-motion`.
+- With the 3D view off, the map has the north up and no pitch.
 
 During the replay, the map shows the night. `src/client/lib/terminator.ts` holds the
 logic, with tests:

@@ -141,6 +141,7 @@ export const it: Messages = {
 	mapLabel: "Mappa della rotta",
 	followAircraft: "Tieni l'aereo al centro della mappa",
 	autoZoom: "Zoom automatico",
+	threeDView: "Vista 3D",
 	mapUnavailable: "La mappa non è disponibile al momento.",
 	mapContributors: "e collaboratori",
 

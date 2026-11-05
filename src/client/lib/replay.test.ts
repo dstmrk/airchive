@@ -62,6 +62,47 @@ describe("position", () => {
 		expect(bearing).toBeLessThan(360);
 	});
 
+	it("changes the bearing with no jump between two points of the route", () => {
+		// The map turns with the bearing in the 3D view: a jump turns the map.
+		let previous = position(route, 0).bearing;
+		for (let i = 1; i <= 2000; i += 1) {
+			const { bearing } = position(route, i / 2000);
+			const change = Math.abs(((bearing - previous + 540) % 360) - 180);
+			expect(change).toBeLessThan(0.2);
+			previous = bearing;
+		}
+	});
+
+	it("gives the bearing of the arrival at the last point", () => {
+		// The bearing of the arrival is the opposite of the bearing from the destination.
+		const back = position(greatCircle(NRT, FCO), 0).bearing;
+
+		expect(position(route, 1).bearing).toBeCloseTo((back + 180) % 360, 0);
+	});
+
+	it("gives the bearing of the departure at the first point", () => {
+		expect(position(route, 0).bearing).toBeCloseTo(
+			position(greatCircle(FCO, NRT, 4096), 0).bearing,
+			0,
+		);
+	});
+
+	it("gives a bearing from 0 to 360 for a route to the north-west", () => {
+		// The bearing goes up to 360 and does not give 360.
+		const north = greatCircle([-73.78, 40.64], [-150.0, 61.17]);
+		for (let i = 0; i <= 100; i += 1) {
+			const { bearing } = position(north, i / 100);
+			expect(bearing).toBeGreaterThanOrEqual(0);
+			expect(bearing).toBeLessThan(360);
+		}
+	});
+
+	it("keeps one bearing on a segment with no length", () => {
+		expect(position([FCO, FCO], 0).bearing).toBe(0);
+		expect(position([FCO, FCO], 0.5).bearing).toBe(0);
+		expect(position([FCO, FCO], 1).bearing).toBe(0);
+	});
+
 	it("gives a position for a route of two points", () => {
 		expect(position([FCO, FCO], 0.5)).toMatchObject({
 			lon: FCO[0],

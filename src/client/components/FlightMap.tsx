@@ -12,6 +12,7 @@ import {
 	Source,
 } from "react-map-gl/maplibre";
 import { useText } from "../i18n/I18nProvider.tsx";
+import { aheadPadding, heading, PITCH_3D, threeD } from "../lib/camera.ts";
 import { follow, INITIAL_FOLLOW } from "../lib/follow.ts";
 import { routeBounds } from "../lib/great-circle.ts";
 import {
@@ -103,6 +104,22 @@ function Aircraft() {
 	);
 }
 
+/** A tilted plane with an arrow to the front: the map turns with the aircraft. */
+function ThreeDIcon() {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			aria-hidden="true"
+			className="size-5 fill-none stroke-current"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M7 13h10l4 7H3zM12 11V3M9 6l3-3 3 3" />
+		</svg>
+	);
+}
+
 /** A lens with an arrow up and down: the zoom follows the altitude. */
 function AutoZoomIcon() {
 	return (
@@ -137,6 +154,10 @@ function AutoZoomIcon() {
  * With `instant` (the time of the replay, to the minute), a dark layer covers
  * the night. A lighter band before it is the civil twilight.
  *
+ * During the replay, the 3D view tilts the map, and the bearing of the map
+ * follows the aircraft while the map follows it. A button on the map starts and
+ * stops it. In the 3D view the person cannot turn or tilt the map.
+ *
  * With `cabin`, the map fills the height of its parent, and one finger moves
  * it: the page under the cabin does not scroll.
  */
@@ -145,16 +166,27 @@ export default function FlightMap({
 	view = null,
 	instant = null,
 	cabin = false,
+	playing = false,
 }: Readonly<{
 	timeline: Timeline;
 	view?: JourneyMoment | null;
 	instant?: number | null;
 	cabin?: boolean;
+	/** During the replay, the map turns slowly. Paused, it turns at once. */
+	playing?: boolean;
 }>) {
 	const text = useText();
 	const mapRef = useRef<MapRef>(null);
 	const [following, dispatchFollow] = useReducer(follow, INITIAL_FOLLOW);
 	const [zooming, dispatchZoom] = useReducer(autoZoom, INITIAL_AUTO_ZOOM);
+	const [inThreeD, dispatchThreeD] = useReducer(
+		threeD,
+		undefined,
+		() => !reducedMotion(),
+	);
+	// The bearing that the map got last, and the time of that frame.
+	const mapBearing = useRef<number | null>(null);
+	const lastTurn = useRef<number | null>(null);
 	// The next zoom of the profile eases: at the start of the replay and after the toggle.
 	const ease = useRef(true);
 	const { data: mapStyle, isError } = usePaperStyle();
@@ -193,9 +225,45 @@ export default function FlightMap({
 		if (!started) {
 			dispatchFollow("reset");
 			dispatchZoom("reset");
+			dispatchThreeD({ type: "reset", reduced: reducedMotion() });
 			ease.current = true;
 		}
 	}, [started]);
+
+	// Before the replay and after the toggle, the map is flat with the north up.
+	// This effect comes before the fit of the cabin: the fit uses the padding of the map.
+	const tilted = started && inThreeD;
+	useEffect(() => {
+		const map = mapRef.current;
+		if (!map || tilted) {
+			return;
+		}
+		mapBearing.current = null;
+		const flat = { pitch: 0, bearing: 0, padding: aheadPadding(0) };
+		if (started && !reducedMotion()) {
+			map.easeTo({ ...flat, duration: EASE_MS });
+		} else {
+			map.jumpTo(flat);
+		}
+	}, [tilted, started]);
+
+	// In the 3D view the camera sets the bearing and the pitch: the gestures cannot.
+	// `dragRotate` is always off. The keyboard handler also stops the keys of the pitch.
+	useEffect(() => {
+		const map = mapRef.current?.getMap();
+		if (!map) {
+			return;
+		}
+		if (tilted) {
+			map.touchZoomRotate.disableRotation();
+			map.touchPitch.disable();
+			map.keyboard.disableRotation();
+		} else {
+			map.touchZoomRotate.enableRotation();
+			map.touchPitch.enable();
+			map.keyboard.enableRotation();
+		}
+	}, [tilted]);
 
 	// `react-map-gl` reads `cooperativeGestures` only at the start of the map.
 	// The size changes with the cabin, thus the route goes in the map again.
@@ -219,6 +287,7 @@ export default function FlightMap({
 	const lat = centre?.[1];
 	const route = aircraft !== null && zooming ? routes[view?.leg ?? 0] : null;
 	const altitudeM = view?.moment.altitudeM ?? 0;
+	const bearing = tracking ? aircraft.bearing : undefined;
 	// `jumpTo` and not `easeTo`: an ease at each frame of the replay would stack.
 	// `jumpTo` stops the gestures, thus it waits while the person moves the map.
 	useEffect(() => {
@@ -226,25 +295,54 @@ export default function FlightMap({
 		if (!map || map.isMoving()) {
 			return;
 		}
-		const camera: { center?: [number, number]; zoom?: number } = {};
+		const camera: {
+			center?: [number, number];
+			zoom?: number;
+			pitch?: number;
+			bearing?: number;
+			padding?: ReturnType<typeof aheadPadding>;
+		} = {};
 		if (lon !== undefined && lat !== undefined) {
 			camera.center = [lon, lat];
 		}
 		if (route) {
-			const fit = map.cameraForBounds(routeBounds(route), { padding: PADDING });
+			// `absolutePadding`: the padding of the 3D view does not change the zoom.
+			const fit = map.cameraForBounds(routeBounds(route), {
+				padding: PADDING,
+				absolutePadding: true,
+			});
 			camera.zoom = profileZoom(altitudeM, cruiseZoom(fit?.zoom));
 		}
-		if (camera.zoom !== undefined && ease.current) {
+		if (tilted) {
+			camera.pitch = PITCH_3D;
+			camera.padding = aheadPadding(map.getContainer().clientHeight);
+		}
+		// With no follow, the bearing stays. Then the first frame of the follow turns from there.
+		if (tilted && bearing !== undefined) {
+			const now = performance.now();
+			camera.bearing = heading(
+				mapBearing.current,
+				bearing,
+				now - (lastTurn.current ?? now),
+				playing,
+			);
+			mapBearing.current = camera.bearing;
+			lastTurn.current = now;
+		} else {
+			lastTurn.current = null;
+		}
+		if (Object.keys(camera).length === 0) {
+			return;
+		}
+		if (ease.current && (camera.zoom !== undefined || tilted)) {
 			ease.current = false;
 			if (!reducedMotion()) {
 				map.easeTo({ ...camera, duration: EASE_MS });
 				return;
 			}
 		}
-		if (camera.center || camera.zoom !== undefined) {
-			map.jumpTo(camera);
-		}
-	}, [lon, lat, route, altitudeM]);
+		map.jumpTo(camera);
+	}, [lon, lat, route, altitudeM, tilted, bearing, playing]);
 
 	// A zoom around the centre keeps the aircraft where it is.
 	useEffect(() => {
@@ -407,6 +505,20 @@ export default function FlightMap({
 							</Marker>
 						)}
 					</MapView>
+				)}
+				{aircraft && (
+					<button
+						type="button"
+						aria-label={text.threeDView}
+						aria-pressed={inThreeD}
+						onClick={() => {
+							ease.current = !inThreeD;
+							dispatchThreeD({ type: "toggle" });
+						}}
+						className="absolute top-15 right-2 grid size-11 place-items-center rounded-full bg-paper shadow-sm aria-pressed:bg-foreground aria-pressed:text-background"
+					>
+						<ThreeDIcon />
+					</button>
 				)}
 				{aircraft && (
 					<button
