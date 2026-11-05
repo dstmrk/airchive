@@ -544,6 +544,10 @@ These rules apply:
   control of MapLibre opened at load and covered a third of the map on a telephone.
 - The page loads the map lazily. MapLibre is approximately 300 KB with gzip, and the
   archive does not load it.
+- MapLibre has its own chunk of approximately 1,100 kB. It is one minified file, thus
+  no split can make it smaller. The limit of the warning of Vite for the client is
+  1,200 kB. React, TanStack and Zod also have their own chunks, below 250 kB each.
+  `vite.config.ts` gives the groups.
 - `cooperativeGestures` is on: one finger scrolls the page, two fingers move the map.
 
 ### 5.6 Relive your flight

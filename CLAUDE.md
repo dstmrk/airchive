@@ -50,6 +50,16 @@ server code. Paragraph 5.2 of `docs/architecture.md` gives the rules.
 
 The project has one `package.json`. Do not add a monorepo tool.
 
+npm 12 blocks the install script of a package that is not in `allowScripts` of
+`package.json`. A key is the name of a package with no version, thus an update of the
+version keeps the approval. When a new package has an install script, ask the user. Then
+run `npx npm@12 install-scripts approve <name>` and remove the version from the key.
+
+drizzle-kit 0.31 declares `@esbuild-kit/esm-loader` but does not use it. That package
+holds an esbuild with a vulnerability. The `overrides` of `package.json` change it to
+`tsx`, the package that replaces it. Remove the override when drizzle-kit removes the
+dependency.
+
 Write the extension in a relative import: `import { x } from "./x.ts"`.
 
 `worker-configuration.d.ts` comes from `wrangler types`. After a change to

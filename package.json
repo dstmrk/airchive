@@ -53,5 +53,12 @@
 		"vite": "^8.3.5",
 		"vitest": "^5.0.5",
 		"wrangler": "^4.155.0"
+	},
+	"overrides": {
+		"@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
+	},
+	"allowScripts": {
+		"esbuild": true,
+		"workerd": true
 	}
 }
