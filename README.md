@@ -6,6 +6,12 @@ airchive turns your boarding passes into a paper keepsake of each flight. You ad
 `.pkpass` file, a screenshot of the barcode or the data of the flight. airchive shows a
 classic paper boarding pass, a map of the route and a replay of the flight.
 
+![Three paper boarding passes of one trip: ITA Airways from Milan to London, Icelandair from London to Reykjavik and Norwegian from Reykjavik to Oslo](docs/screenshots/boarding-passes.png)
+
+![The replay of a flight from London to Tokyo Haneda: the aircraft is near Khabarovsk at 11,000 m, 1,619 km before the arrival](docs/screenshots/relive-your-flight.png)
+
+The screenshots show sample data.
+
 ## Functions
 
 - Sign in with a magic link. Each person holds a private archive.
