@@ -17,7 +17,7 @@ contains the stack, the decisions and the list of the slices.
 | Item | Language |
 |---|---|
 | Documents (`*.md`) | English. Use ASD-STE100 Simplified Technical English. |
-| User interface text | English now. Italian is the next locale. |
+| User interface text | English and Italian. Paragraph 5.2 of `docs/architecture.md` gives the rules. |
 | Code, identifiers, comments | English. |
 | Commit messages, PR text | English. |
 
