@@ -110,7 +110,9 @@ A boarding pass holds personal data. These rules prevent the most dangerous defe
 2. **The application stores no image of a pass.** The logos of the airlines are a static
    catalogue in `src/client/logos/airlines.json`. Add a logo with `npm run logos:add`.
 3. **Each table of the data has `owner_id`.** Each query gives that condition.
-4. **The public view hides the name and the booking reference** by default.
+4. **The public view never shows the name, the booking reference, the barcode or the
+   number of a frequent flyer programme.** The public route reads a list of permitted
+   columns.
 
 Paragraph 3.2 of `docs/architecture.md` gives the reasons.
 
