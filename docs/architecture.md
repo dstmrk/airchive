@@ -221,7 +221,14 @@ airline. Therefore these rules apply:
 - The server receives only the fields that the person examined in the form.
 - The application stores no image of a pass. The accent colour of the pass is a value
   of the flight.
-- The public view of a flight does not show the name or the booking reference by default.
+- The public view of a flight never shows the name, the booking reference, the barcode
+  or the number of a frequent flyer programme. The person cannot change this rule. With
+  the booking reference and the surname, a person can open the booking on the site of
+  the airline. The barcode holds the two values.
+- The public route reads a list of permitted columns. It does not remove columns from a
+  full row. Thus a new column stays private until a decision adds it to the list.
+- This rule applies to each output of the public route: the HTML, the Open Graph tags,
+  the data of the page and the preview image.
 - The deletion of an account deletes the rows in D1.
 
 ### 3.3 One owner for each row
